@@ -1,0 +1,54 @@
+# Todo Application Requirements
+
+## Todo
+
+A Todo has:
+
+- id
+- title
+- completed state
+- creation timestamp
+
+## Create Todo
+
+Users can create a Todo using a text input.
+
+Rules:
+
+- trim whitespace
+- empty titles are not allowed
+- maximum title length is 120 characters
+
+## Complete Todo
+
+Users can toggle a Todo between active and completed.
+
+## Delete Todo
+
+Users can permanently delete a Todo.
+
+## Filters
+
+Available filters:
+
+- all
+- active
+- completed
+
+Default filter:
+
+- all
+
+## Counter
+
+Display the number of active Todos.
+
+## Clear completed
+
+Users can remove all completed Todos.
+
+The action should not be displayed or should be disabled when there are no completed Todos.
+
+## Persistence
+
+Todos must persist between browser reloads using localStorage.

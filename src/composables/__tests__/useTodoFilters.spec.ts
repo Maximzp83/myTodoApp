@@ -1,0 +1,49 @@
+import { ref } from 'vue'
+import { describe, expect, it } from 'vitest'
+import { useTodoFilters } from '@/composables/useTodoFilters'
+import type { Todo } from '@/types/todo'
+
+const todos: Todo[] = [
+  {
+    id: 'active-todo',
+    title: 'Active Todo',
+    completed: false,
+    createdAt: '2026-08-14T12:00:00.000Z',
+  },
+  {
+    id: 'completed-todo',
+    title: 'Completed Todo',
+    completed: true,
+    createdAt: '2026-08-14T13:00:00.000Z',
+  },
+]
+
+describe('useTodoFilters', () => {
+  it('shows all Todos by default', () => {
+    const { filter, filteredTodos } = useTodoFilters(ref(todos))
+
+    expect(filter.value).toBe('all')
+    expect(filteredTodos.value).toEqual(todos)
+  })
+
+  it('filters active and completed Todos', () => {
+    const { filter, filteredTodos } = useTodoFilters(ref(todos))
+
+    filter.value = 'active'
+    expect(filteredTodos.value).toEqual([todos[0]])
+
+    filter.value = 'completed'
+    expect(filteredTodos.value).toEqual([todos[1]])
+  })
+
+  it('derives the active count and completed state reactively', () => {
+    const todoState = ref(todos.map((todo) => ({ ...todo })))
+    const { activeCount, hasCompleted } = useTodoFilters(todoState)
+
+    expect(activeCount.value).toBe(1)
+    expect(hasCompleted.value).toBe(true)
+
+    todoState.value[0]!.completed = true
+    expect(activeCount.value).toBe(0)
+  })
+})
