@@ -8,6 +8,11 @@ A Todo has:
 - title
 - completed state
 - creation timestamp
+- priority: low, normal, high, or critical
+
+Default priority:
+
+- normal
 
 ## Create Todo
 

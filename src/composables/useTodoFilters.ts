@@ -1,19 +1,24 @@
 import { computed, ref, type Ref } from 'vue'
-import type { Todo, TodoFilter } from '@/types/todo'
+import { TodoFilter, type Todo } from '@/types/todo'
+
+function assertNever(value: never): never {
+  throw new Error(`Unsupported Todo filter: ${String(value)}`)
+}
 
 export function useTodoFilters(todos: Ref<Todo[]>) {
-  const filter = ref<TodoFilter>('all')
+  const filter = ref<TodoFilter>(TodoFilter.All)
 
   const filteredTodos = computed(() => {
-    if (filter.value === 'active') {
-      return todos.value.filter((todo) => !todo.completed)
+    switch (filter.value) {
+      case TodoFilter.All:
+        return todos.value
+      case TodoFilter.Active:
+        return todos.value.filter((todo) => !todo.completed)
+      case TodoFilter.Completed:
+        return todos.value.filter((todo) => todo.completed)
+      default:
+        return assertNever(filter.value)
     }
-
-    if (filter.value === 'completed') {
-      return todos.value.filter((todo) => todo.completed)
-    }
-
-    return todos.value
   })
 
   const activeCount = computed(() => todos.value.filter((todo) => !todo.completed).length)

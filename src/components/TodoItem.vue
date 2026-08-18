@@ -20,7 +20,12 @@ const emit = defineEmits<{
       :checked="todo.completed"
       @change="emit('toggle', todo.id)"
     />
-    <label class="todo-item__title" :for="`todo-${todo.id}`">{{ todo.title }}</label>
+    <div class="todo-item__content">
+      <label class="todo-item__title" :for="`todo-${todo.id}`">{{ todo.title }}</label>
+      <span class="todo-priority" :class="`todo-priority--${todo.priority}`">
+        {{ todo.priority }}
+      </span>
+    </div>
     <button
       class="button button--danger todo-item__remove"
       type="button"

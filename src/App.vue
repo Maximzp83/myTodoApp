@@ -16,7 +16,6 @@ const { filter, filteredTodos, activeCount, hasCompleted } = useTodoFilters(todo
   <main class="app-shell">
     <section class="todo-card" aria-labelledby="todo-heading">
       <header class="todo-header">
-        <p class="todo-header__eyebrow">Make space for what matters</p>
         <h1 id="todo-heading">My Todos</h1>
         <p class="todo-header__intro">A simple place to capture tasks and keep moving.</p>
       </header>

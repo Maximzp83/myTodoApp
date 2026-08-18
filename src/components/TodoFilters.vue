@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { TodoFilter } from '@/types/todo'
+import { TodoFilter } from '@/types/todo'
 
 defineProps<{
   modelValue: TodoFilter
@@ -9,11 +9,15 @@ const emit = defineEmits<{
   'update:modelValue': [filter: TodoFilter]
 }>()
 
-const filters = [
-  { value: 'all', label: 'All' },
-  { value: 'active', label: 'Active' },
-  { value: 'completed', label: 'Completed' },
-] satisfies { value: TodoFilter; label: string }[]
+const filterLabels = {
+  [TodoFilter.All]: 'All',
+  [TodoFilter.Active]: 'Active',
+  [TodoFilter.Completed]: 'Completed',
+} satisfies Record<TodoFilter, string>
+const filters = Object.values(TodoFilter).map((value) => ({
+  value,
+  label: filterLabels[value],
+}))
 </script>
 
 <template>

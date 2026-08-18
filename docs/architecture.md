@@ -41,3 +41,5 @@ Composable functions contain reusable reactive or derived behavior.
 ## Types
 
 Shared domain types belong in src/types.
+
+Small runtime guards that validate persisted domain values belong alongside their domain types.

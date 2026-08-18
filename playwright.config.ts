@@ -63,6 +63,13 @@ export default defineConfig({
         ...devices['Desktop Safari'],
       },
     },
+    {
+      name: 'chrome',
+      use: {
+        ...devices['Desktop Chrome'],
+        channel: 'chrome',
+      },
+    },
 
     /* Test against mobile viewports. */
     // {
@@ -83,12 +90,6 @@ export default defineConfig({
     //   name: 'Microsoft Edge',
     //   use: {
     //     channel: 'msedge',
-    //   },
-    // },
-    // {
-    //   name: 'Google Chrome',
-    //   use: {
-    //     channel: 'chrome',
     //   },
     // },
   ],

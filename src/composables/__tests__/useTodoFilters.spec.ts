@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import { describe, expect, it } from 'vitest'
 import { useTodoFilters } from '@/composables/useTodoFilters'
-import type { Todo } from '@/types/todo'
+import { TodoFilter, TodoPriority, type Todo } from '@/types/todo'
 
 const todos: Todo[] = [
   {
@@ -9,12 +9,14 @@ const todos: Todo[] = [
     title: 'Active Todo',
     completed: false,
     createdAt: '2026-08-14T12:00:00.000Z',
+    priority: TodoPriority.Normal,
   },
   {
     id: 'completed-todo',
     title: 'Completed Todo',
     completed: true,
     createdAt: '2026-08-14T13:00:00.000Z',
+    priority: TodoPriority.High,
   },
 ]
 
@@ -22,17 +24,17 @@ describe('useTodoFilters', () => {
   it('shows all Todos by default', () => {
     const { filter, filteredTodos } = useTodoFilters(ref(todos))
 
-    expect(filter.value).toBe('all')
+    expect(filter.value).toBe(TodoFilter.All)
     expect(filteredTodos.value).toEqual(todos)
   })
 
   it('filters active and completed Todos', () => {
     const { filter, filteredTodos } = useTodoFilters(ref(todos))
 
-    filter.value = 'active'
+    filter.value = TodoFilter.Active
     expect(filteredTodos.value).toEqual([todos[0]])
 
-    filter.value = 'completed'
+    filter.value = TodoFilter.Completed
     expect(filteredTodos.value).toEqual([todos[1]])
   })
 

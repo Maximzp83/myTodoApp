@@ -58,17 +58,41 @@ Components should have a clear single responsibility.
 
 Do not split components only to reduce line count.
 
-## TypeScript rules
+## Architecture boundaries
 
-Avoid `any`.
+Vue components must not:
 
-Do not use `as any` to bypass type errors.
+- access localStorage directly
+- implement persistence
+- contain reusable domain logic
 
-Prefer interfaces or simple type aliases over complicated generic types.
+Persistence belongs in `src/services`.
 
-Do not weaken TypeScript configuration to make errors disappear.
+Shared Todo state belongs in `src/stores`.
 
-Fix the actual type error instead.
+Reusable derived reactive logic belongs in `src/composables`.
+
+## TypeScript
+
+The project uses strict TypeScript.
+
+Do not weaken TypeScript compiler settings to resolve errors.
+
+Do not use:
+
+- `any`
+- `as any`
+- `@ts-ignore`
+- `@ts-nocheck`
+
+unless there is a documented technical reason.
+
+Prefer `unknown` when a value's type is genuinely unknown.
+
+Respect `noUncheckedIndexedAccess` and handle potentially missing
+array or object values explicitly.
+
+Prefer type inference when the type is obvious.
 
 ## State management
 
@@ -99,15 +123,11 @@ Prefer Vue and browser platform APIs before adding another library.
 
 ## Verification
 
-Before considering a task complete, run the relevant checks:
+Before considering a coding task complete, run:
 
-- type checking
-- lint
-- unit tests
+npm run verify
 
-For UI or user-flow changes, also run E2E tests when appropriate.
-
-Do not ignore failing checks.
+Do not report the task as complete if verification fails.
 
 ## Working style
 
@@ -122,3 +142,26 @@ Before implementing a non-trivial task:
 Avoid unrelated refactoring.
 
 Do not rewrite working files unnecessarily.
+
+## Task workflow
+
+For non-trivial changes:
+
+1. Read the relevant requirements.
+2. Inspect the existing implementation.
+3. Identify which layers are affected.
+4. Implement the smallest coherent change.
+5. Run `npm run verify`.
+6. Review `git diff`.
+7. Report:
+   - what changed
+   - what was tested
+   - any remaining concerns
+
+## Git
+
+Before finishing a task, review the git diff.
+
+Do not modify unrelated files.
+
+Do not commit changes unless explicitly asked.
