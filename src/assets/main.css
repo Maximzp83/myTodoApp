@@ -269,22 +269,22 @@ h1 {
   text-transform: uppercase;
 }
 
-.todo-priority--low {
+.todo-priority[data-priority-id='1'] {
   color: #047857;
   background: #d1fae5;
 }
 
-.todo-priority--normal {
+.todo-priority[data-priority-id='2'] {
   color: #475569;
   background: #e2e8f0;
 }
 
-.todo-priority--high {
+.todo-priority[data-priority-id='3'] {
   color: #be123c;
   background: #ffe4e6;
 }
 
-.todo-priority--critical {
+.todo-priority[data-priority-id='4'] {
   color: #fff;
   background: #9f1239;
 }

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import type { Todo } from '@/types/todo'
+import { computed } from 'vue'
+import { prioritiesList, type Todo } from '@/types/todo'
 
-defineProps<{
+const props = defineProps<{
   todo: Todo
 }>()
 
@@ -9,6 +10,11 @@ const emit = defineEmits<{
   toggle: [id: string]
   remove: [id: string]
 }>()
+
+const priorityLabel = computed(
+  () =>
+    prioritiesList.find((priority) => priority.id === props.todo.priorityId)?.label ?? 'Unknown',
+)
 </script>
 
 <template>
@@ -22,8 +28,8 @@ const emit = defineEmits<{
     />
     <div class="todo-item__content">
       <label class="todo-item__title" :for="`todo-${todo.id}`">{{ todo.title }}</label>
-      <span class="todo-priority" :class="`todo-priority--${todo.priority}`">
-        {{ todo.priority }}
+      <span class="todo-priority" :data-priority-id="todo.priorityId">
+        {{ priorityLabel }}
       </span>
     </div>
     <button

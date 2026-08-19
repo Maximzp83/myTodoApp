@@ -11,7 +11,7 @@ test('manages, filters, and persists Todos', async ({ page }) => {
 
   const input = page.getByLabel('New Todo')
   await input.fill('  First task  ')
-  await page.getByLabel('Priority').selectOption('critical')
+  await page.getByLabel('Priority').selectOption({ label: 'Critical' })
   await page.getByRole('button', { name: 'Add Todo' }).click()
   await input.fill('Second task')
   await page.getByRole('button', { name: 'Add Todo' }).click()
@@ -21,7 +21,7 @@ test('manages, filters, and persists Todos', async ({ page }) => {
     page
       .getByRole('listitem')
       .filter({ hasText: 'First task' })
-      .getByText('critical', { exact: true }),
+      .getByText('Critical', { exact: true }),
   ).toBeVisible()
   await expect(page.getByText('Second task', { exact: true })).toBeVisible()
   await expect(page.getByText('2 items left')).toBeVisible()
@@ -46,7 +46,7 @@ test('manages, filters, and persists Todos', async ({ page }) => {
     page
       .getByRole('listitem')
       .filter({ hasText: 'First task' })
-      .getByText('critical', { exact: true }),
+      .getByText('Critical', { exact: true }),
   ).toBeVisible()
   await expect(page.getByText('Second task', { exact: true })).toBeVisible()
 

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { loadTodos, saveTodos } from '@/services/todoStorage'
-import { TodoPriority, type Todo } from '@/types/todo'
+import { TodoPriorityId, type Todo } from '@/types/todo'
 
 describe('todoStorage', () => {
   beforeEach(() => {
@@ -34,7 +34,7 @@ describe('todoStorage', () => {
         title: 'Test persistence',
         completed: false,
         createdAt: '2026-08-14T12:00:00.000Z',
-        priority: TodoPriority.High,
+        priorityId: TodoPriorityId.High,
       },
     ]
 
@@ -62,14 +62,14 @@ describe('todoStorage', () => {
         title: 'Existing Todo',
         completed: false,
         createdAt: '2026-08-14T12:00:00.000Z',
-        priority: TodoPriority.Normal,
+        priorityId: TodoPriorityId.Normal,
       },
     ])
   })
 
   it('migrates the former primarily priority to critical', () => {
     localStorage.setItem(
-      'todos',
+      'vue-ts-todo.todos.v1',
       JSON.stringify([
         {
           id: 'legacy-priority-todo',
@@ -81,7 +81,7 @@ describe('todoStorage', () => {
       ]),
     )
 
-    expect(loadTodos()[0]?.priority).toBe(TodoPriority.Critical)
+    expect(loadTodos()[0]?.priorityId).toBe(TodoPriorityId.Critical)
   })
 
   it('keeps valid Todos when another stored item is invalid', () => {
@@ -90,7 +90,7 @@ describe('todoStorage', () => {
       title: 'Keep this Todo',
       completed: false,
       createdAt: '2026-08-14T12:00:00.000Z',
-      priority: TodoPriority.Normal,
+      priorityId: TodoPriorityId.Normal,
     }
     localStorage.setItem('todos', JSON.stringify([validTodo, { id: 42 }]))
 

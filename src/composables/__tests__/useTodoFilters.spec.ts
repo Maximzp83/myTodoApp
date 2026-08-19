@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import { describe, expect, it } from 'vitest'
 import { useTodoFilters } from '@/composables/useTodoFilters'
-import { TodoFilter, TodoPriority, type Todo } from '@/types/todo'
+import { TodoFilter, TodoPriorityId, type Todo } from '@/types/todo'
 
 const todos: Todo[] = [
   {
@@ -9,14 +9,14 @@ const todos: Todo[] = [
     title: 'Active Todo',
     completed: false,
     createdAt: '2026-08-14T12:00:00.000Z',
-    priority: TodoPriority.Normal,
+    priorityId: TodoPriorityId.Normal,
   },
   {
     id: 'completed-todo',
     title: 'Completed Todo',
     completed: true,
     createdAt: '2026-08-14T13:00:00.000Z',
-    priority: TodoPriority.High,
+    priorityId: TodoPriorityId.High,
   },
 ]
 

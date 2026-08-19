@@ -1,14 +1,24 @@
-export enum TodoPriority {
-  Low = 'low',
-  Normal = 'normal',
-  High = 'high',
-  Critical = 'critical',
+export enum TodoPriorityId {
+  Low = 1,
+  Normal = 2,
+  High = 3,
+  Critical = 4,
 }
 
-const todoPriorityValues: readonly unknown[] = Object.values(TodoPriority)
+export interface TodoPriorityOption {
+  readonly id: TodoPriorityId
+  readonly label: string
+}
 
-export function isTodoPriority(value: unknown): value is TodoPriority {
-  return todoPriorityValues.includes(value)
+export const prioritiesList = [
+  { id: TodoPriorityId.Low, label: 'Low' },
+  { id: TodoPriorityId.Normal, label: 'Normal' },
+  { id: TodoPriorityId.High, label: 'High' },
+  { id: TodoPriorityId.Critical, label: 'Critical' },
+] as const satisfies readonly TodoPriorityOption[]
+
+export function isTodoPriorityId(value: unknown): value is TodoPriorityId {
+  return typeof value === 'number' && prioritiesList.some((priority) => priority.id === value)
 }
 
 export interface Todo {
@@ -16,7 +26,7 @@ export interface Todo {
   title: string
   completed: boolean
   createdAt: string
-  priority: TodoPriority
+  priorityId: TodoPriorityId
 }
 
 export enum TodoFilter {

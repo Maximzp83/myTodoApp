@@ -2,7 +2,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { loadTodos, saveTodos } from '@/services/todoStorage'
 import { useTodoStore } from '@/stores/todo'
-import { TodoPriority, type Todo } from '@/types/todo'
+import { TodoPriorityId, type Todo } from '@/types/todo'
 
 vi.mock('@/services/todoStorage')
 
@@ -11,7 +11,7 @@ const activeTodo: Todo = {
   title: 'Active Todo',
   completed: false,
   createdAt: '2026-08-14T12:00:00.000Z',
-  priority: TodoPriority.Normal,
+  priorityId: TodoPriorityId.Normal,
 }
 
 const completedTodo: Todo = {
@@ -19,7 +19,7 @@ const completedTodo: Todo = {
   title: 'Completed Todo',
   completed: true,
   createdAt: '2026-08-14T13:00:00.000Z',
-  priority: TodoPriority.High,
+  priorityId: TodoPriorityId.High,
 }
 
 describe('Todo store', () => {
@@ -40,7 +40,7 @@ describe('Todo store', () => {
   it('adds a trimmed Todo and persists the collection', () => {
     const store = useTodoStore()
 
-    store.addTodo('  Learn Pinia  ', TodoPriority.High)
+    store.addTodo('  Learn Pinia  ', TodoPriorityId.High)
 
     expect(store.todos).toHaveLength(1)
     expect(store.todos[0]).toEqual({
@@ -48,7 +48,7 @@ describe('Todo store', () => {
       title: 'Learn Pinia',
       completed: false,
       createdAt: expect.any(String),
-      priority: TodoPriority.High,
+      priorityId: TodoPriorityId.High,
     })
     expect(saveTodos).toHaveBeenCalledExactlyOnceWith(store.todos)
   })
@@ -65,9 +65,9 @@ describe('Todo store', () => {
 
   it('rejects an invalid runtime priority without persisting', () => {
     const store = useTodoStore()
-    const invalidPriority = 'invalid' as TodoPriority
+    const invalidPriorityId = 999 as TodoPriorityId
 
-    store.addTodo('Invalid priority', invalidPriority)
+    store.addTodo('Invalid priority', invalidPriorityId)
 
     expect(store.todos).toEqual([])
     expect(saveTodos).not.toHaveBeenCalled()

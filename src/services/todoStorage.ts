@@ -1,7 +1,28 @@
-import { isTodoPriority, TodoPriority, type Todo } from '@/types/todo'
+import { isTodoPriorityId, TodoPriorityId, type Todo } from '@/types/todo'
 
-const STORAGE_KEY = 'vue-ts-todo.todos.v1'
+const STORAGE_KEY = 'vue-ts-todo.todos.v2'
+const PREVIOUS_STORAGE_KEY = 'vue-ts-todo.todos.v1'
 const LEGACY_STORAGE_KEY = 'todos'
+
+function parsePriorityId(value: unknown): TodoPriorityId | null {
+  if (isTodoPriorityId(value)) {
+    return value
+  }
+
+  switch (value) {
+    case 'low':
+      return TodoPriorityId.Low
+    case 'normal':
+      return TodoPriorityId.Normal
+    case 'high':
+      return TodoPriorityId.High
+    case 'critical':
+    case 'primarily':
+      return TodoPriorityId.Critical
+    default:
+      return null
+  }
+}
 
 function parseTodo(value: unknown): Todo | null {
   if (
@@ -19,10 +40,15 @@ function parseTodo(value: unknown): Todo | null {
     return null
   }
 
-  const storedPriority = 'priority' in value ? value.priority : TodoPriority.Normal
-  const priority = storedPriority === 'primarily' ? TodoPriority.Critical : storedPriority
+  const storedPriority =
+    'priorityId' in value
+      ? value.priorityId
+      : 'priority' in value
+        ? value.priority
+        : TodoPriorityId.Normal
+  const priorityId = parsePriorityId(storedPriority)
 
-  if (!isTodoPriority(priority)) {
+  if (priorityId === null) {
     return null
   }
 
@@ -31,14 +57,16 @@ function parseTodo(value: unknown): Todo | null {
     title: value.title,
     completed: value.completed,
     createdAt: value.createdAt,
-    priority,
+    priorityId,
   }
 }
 
 export function loadTodos(): Todo[] {
   try {
     const storedTodos =
-      localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY)
+      localStorage.getItem(STORAGE_KEY) ??
+      localStorage.getItem(PREVIOUS_STORAGE_KEY) ??
+      localStorage.getItem(LEGACY_STORAGE_KEY)
 
     if (storedTodos === null) {
       return []
