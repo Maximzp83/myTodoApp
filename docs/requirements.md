@@ -39,10 +39,17 @@ Available filters:
 - all
 - active
 - completed
+- low priority
+- normal priority
+- high priority
+- critical priority
 
-Default filter:
+Status and priority filters can be combined.
+
+Default filters:
 
 - all
+- all priorities
 
 ## Counter
 

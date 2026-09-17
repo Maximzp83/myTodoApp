@@ -11,7 +11,7 @@ test('manages, filters, and persists Todos', async ({ page }) => {
 
   const input = page.getByLabel('New Todo')
   await input.fill('  First task  ')
-  await page.getByLabel('Priority').selectOption({ label: 'Critical' })
+  await page.getByLabel('Priority', { exact: true }).selectOption({ label: 'Critical' })
   await page.getByRole('button', { name: 'Add Todo' }).click()
   await input.fill('Second task')
   await page.getByRole('button', { name: 'Add Todo' }).click()
@@ -25,6 +25,16 @@ test('manages, filters, and persists Todos', async ({ page }) => {
   ).toBeVisible()
   await expect(page.getByText('Second task', { exact: true })).toBeVisible()
   await expect(page.getByText('2 items left')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Critical', exact: true }).click()
+  await expect(page.getByText('First task', { exact: true })).toBeVisible()
+  await expect(page.getByText('Second task', { exact: true })).toBeHidden()
+
+  await page.getByRole('button', { name: 'Normal', exact: true }).click()
+  await expect(page.getByText('First task', { exact: true })).toBeHidden()
+  await expect(page.getByText('Second task', { exact: true })).toBeVisible()
+
+  await page.getByRole('button', { name: 'All priorities', exact: true }).click()
 
   const firstTodo = page.getByRole('checkbox', { name: 'First task' })
   await firstTodo.check()

@@ -38,6 +38,19 @@ describe('useTodoFilters', () => {
     expect(filteredTodos.value).toEqual([todos[1]])
   })
 
+  it('filters by priority and combines it with the status filter', () => {
+    const { filter, priorityId, filteredTodos } = useTodoFilters(ref(todos))
+
+    priorityId.value = TodoPriorityId.High
+    expect(filteredTodos.value).toEqual([todos[1]])
+
+    filter.value = TodoFilter.Active
+    expect(filteredTodos.value).toEqual([])
+
+    priorityId.value = TodoPriorityId.Normal
+    expect(filteredTodos.value).toEqual([todos[0]])
+  })
+
   it('derives the active count and completed state reactively', () => {
     const todoState = ref(todos.map((todo) => ({ ...todo })))
     const { activeCount, hasCompleted } = useTodoFilters(todoState)

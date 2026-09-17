@@ -9,7 +9,7 @@ import { useTodoStore } from '@/stores/todo'
 
 const todoStore = useTodoStore()
 const { todos } = storeToRefs(todoStore)
-const { filter, filteredTodos, activeCount, hasCompleted } = useTodoFilters(todos)
+const { filter, priorityId, filteredTodos, activeCount, hasCompleted } = useTodoFilters(todos)
 </script>
 
 <template>
@@ -23,7 +23,7 @@ const { filter, filteredTodos, activeCount, hasCompleted } = useTodoFilters(todo
       <TodoForm @add="todoStore.addTodo" />
 
       <div class="todo-controls">
-        <TodoFilters v-model="filter" />
+        <TodoFilters v-model="filter" v-model:priority-id="priorityId" />
         <TodoSummary
           :active-count="activeCount"
           :has-completed="hasCompleted"
