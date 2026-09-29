@@ -27,6 +27,7 @@ export interface Todo {
   completed: boolean
   createdAt: string
   priorityId: TodoPriorityId
+  categoryId: string | null
 }
 
 export enum TodoFilter {

@@ -35,6 +35,7 @@ describe('todoStorage', () => {
         completed: false,
         createdAt: '2026-08-14T12:00:00.000Z',
         priorityId: TodoPriorityId.High,
+        categoryId: 'work',
       },
     ]
 
@@ -63,6 +64,7 @@ describe('todoStorage', () => {
         completed: false,
         createdAt: '2026-08-14T12:00:00.000Z',
         priorityId: TodoPriorityId.Normal,
+        categoryId: null,
       },
     ])
   })
@@ -91,6 +93,7 @@ describe('todoStorage', () => {
       completed: false,
       createdAt: '2026-08-14T12:00:00.000Z',
       priorityId: TodoPriorityId.Normal,
+      categoryId: null,
     }
     localStorage.setItem('todos', JSON.stringify([validTodo, { id: 42 }]))
 
@@ -111,5 +114,49 @@ describe('todoStorage', () => {
     })
 
     expect(saveTodos([])).toBe(false)
+  })
+
+  it('migrates v2 tasks to uncategorized without changing their priority or completion', () => {
+    localStorage.setItem(
+      'vue-ts-todo.todos.v2',
+      JSON.stringify([
+        {
+          id: 'existing-task',
+          title: 'Existing task',
+          completed: true,
+          createdAt: '2026-08-14T12:00:00.000Z',
+          priorityId: TodoPriorityId.Critical,
+        },
+      ]),
+    )
+
+    expect(loadTodos()).toEqual([
+      {
+        id: 'existing-task',
+        title: 'Existing task',
+        completed: true,
+        createdAt: '2026-08-14T12:00:00.000Z',
+        priorityId: TodoPriorityId.Critical,
+        categoryId: null,
+      },
+    ])
+  })
+
+  it('does not restore old tasks after the migrated collection is cleared', () => {
+    localStorage.setItem(
+      'vue-ts-todo.todos.v2',
+      JSON.stringify([
+        {
+          id: 'old-task',
+          title: 'Old task',
+          completed: false,
+          createdAt: '2026-08-14T12:00:00.000Z',
+          priorityId: TodoPriorityId.Normal,
+        },
+      ]),
+    )
+    expect(saveTodos([])).toBe(true)
+
+    expect(loadTodos()).toEqual([])
   })
 })

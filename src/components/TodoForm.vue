@@ -1,23 +1,38 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import type { TodoCategory } from '@/types/category'
 import { prioritiesList, TodoPriorityId } from '@/types/todo'
 
+const props = defineProps<{
+  categories: TodoCategory[]
+  defaultCategoryId: string | null
+}>()
+
 const emit = defineEmits<{
-  add: [title: string, priorityId: TodoPriorityId]
+  add: [title: string, priorityId: TodoPriorityId, categoryId: string | null]
 }>()
 
 const title = ref('')
 const priorityId = ref<TodoPriorityId>(TodoPriorityId.Normal)
+const categoryId = ref(props.defaultCategoryId)
 const canSubmit = computed(() => title.value.trim().length > 0)
+
+watch(
+  () => props.defaultCategoryId,
+  (newCategoryId) => {
+    categoryId.value = newCategoryId
+  },
+)
 
 function submitTodo() {
   if (!canSubmit.value) {
     return
   }
 
-  emit('add', title.value, priorityId.value)
+  emit('add', title.value, priorityId.value, categoryId.value)
   title.value = ''
   priorityId.value = TodoPriorityId.Normal
+  categoryId.value = props.defaultCategoryId
 }
 </script>
 
@@ -33,6 +48,15 @@ function submitTodo() {
       placeholder="What needs to be done?"
       autocomplete="off"
     />
+    <div class="todo-form__category">
+      <label for="todo-category">Category</label>
+      <select id="todo-category" v-model="categoryId" class="todo-form__select">
+        <option :value="null">Uncategorized</option>
+        <option v-for="category in categories" :key="category.id" :value="category.id">
+          {{ category.name }}
+        </option>
+      </select>
+    </div>
     <div class="todo-form__priority">
       <label for="todo-priority">Priority</label>
       <select id="todo-priority" v-model.number="priorityId" class="todo-form__select">

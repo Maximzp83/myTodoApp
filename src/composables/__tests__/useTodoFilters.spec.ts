@@ -10,6 +10,7 @@ const todos: Todo[] = [
     completed: false,
     createdAt: '2026-08-14T12:00:00.000Z',
     priorityId: TodoPriorityId.Normal,
+    categoryId: 'work',
   },
   {
     id: 'completed-todo',
@@ -17,6 +18,7 @@ const todos: Todo[] = [
     completed: true,
     createdAt: '2026-08-14T13:00:00.000Z',
     priorityId: TodoPriorityId.High,
+    categoryId: null,
   },
 ]
 
@@ -60,5 +62,50 @@ describe('useTodoFilters', () => {
 
     todoState.value[0]!.completed = true
     expect(activeCount.value).toBe(0)
+  })
+
+  it('filters by category and scopes the summary to the selected tab', () => {
+    const { categoryId, filteredTodos, activeCount, hasCompleted } = useTodoFilters(ref(todos))
+
+    categoryId.value = 'work'
+    expect(filteredTodos.value).toEqual([todos[0]])
+    expect(activeCount.value).toBe(1)
+    expect(hasCompleted.value).toBe(false)
+
+    categoryId.value = null
+    expect(filteredTodos.value).toEqual([todos[1]])
+    expect(activeCount.value).toBe(0)
+    expect(hasCompleted.value).toBe(true)
+
+    categoryId.value = undefined
+    expect(filteredTodos.value).toEqual(todos)
+  })
+
+  it('combines category, status, and priority filters', () => {
+    const { categoryId, filter, priorityId, filteredTodos } = useTodoFilters(ref(todos))
+
+    categoryId.value = 'work'
+    priorityId.value = TodoPriorityId.Normal
+    filter.value = TodoFilter.Active
+    expect(filteredTodos.value).toEqual([todos[0]])
+
+    filter.value = TodoFilter.Completed
+    expect(filteredTodos.value).toEqual([])
+
+    categoryId.value = null
+    priorityId.value = TodoPriorityId.High
+    expect(filteredTodos.value).toEqual([todos[1]])
+  })
+
+  it('updates the selected category list when a task is moved', () => {
+    const todoState = ref(todos.map((todo) => ({ ...todo })))
+    const { categoryId, filteredTodos } = useTodoFilters(todoState)
+    categoryId.value = 'work'
+
+    const task = todoState.value.find((todo) => todo.id === 'active-todo')
+    if (!task) throw new Error('Expected active task fixture')
+    task.categoryId = null
+
+    expect(filteredTodos.value).toEqual([])
   })
 })

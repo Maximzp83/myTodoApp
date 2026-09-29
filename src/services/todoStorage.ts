@@ -1,6 +1,7 @@
 import { isTodoPriorityId, TodoPriorityId, type Todo } from '@/types/todo'
 
-const STORAGE_KEY = 'vue-ts-todo.todos.v2'
+const STORAGE_KEY = 'vue-ts-todo.todos.v3'
+const PRIORITY_STORAGE_KEY = 'vue-ts-todo.todos.v2'
 const PREVIOUS_STORAGE_KEY = 'vue-ts-todo.todos.v1'
 const LEGACY_STORAGE_KEY = 'todos'
 
@@ -58,6 +59,10 @@ function parseTodo(value: unknown): Todo | null {
     completed: value.completed,
     createdAt: value.createdAt,
     priorityId,
+    categoryId:
+      'categoryId' in value && typeof value.categoryId === 'string' && value.categoryId.length > 0
+        ? value.categoryId
+        : null,
   }
 }
 
@@ -65,6 +70,7 @@ export function loadTodos(): Todo[] {
   try {
     const storedTodos =
       localStorage.getItem(STORAGE_KEY) ??
+      localStorage.getItem(PRIORITY_STORAGE_KEY) ??
       localStorage.getItem(PREVIOUS_STORAGE_KEY) ??
       localStorage.getItem(LEGACY_STORAGE_KEY)
 
