@@ -1,7 +1,7 @@
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { loadCategories, saveCategories } from '@/services/categoryStorage'
-import { loadTodos, saveTodos } from '@/services/todoStorage'
+import * as todoApi from '@/services/todoApi'
+import { errorMessage } from '@/services/errors'
 import {
   MAX_CATEGORY_NAME_LENGTH,
   type TodoCategory,
@@ -12,122 +12,190 @@ import { isTodoPriorityId, TodoPriorityId, type Todo } from '@/types/todo'
 const MAX_TITLE_LENGTH = 120
 
 export const useTodoStore = defineStore('todos', () => {
-  const categories = ref<TodoCategory[]>(loadCategories())
-  const todos = ref<Todo[]>(
-    loadTodos().map((todo) => ({
-      ...todo,
-      categoryId: categories.value.some((category) => category.id === todo.categoryId)
-        ? todo.categoryId
-        : null,
-    })),
+  const todos = ref<Todo[]>([])
+  const categories = ref<TodoCategory[]>([])
+  const loading = ref(false)
+  const saving = ref(false)
+  const loaded = ref(false)
+  const error = ref('')
+  const userId = ref<string | null>(null)
+  const browserDataAvailable = ref(todoApi.hasBrowserData())
+  const busy = computed(() => loading.value || saving.value)
+  const canImport = computed(
+    () =>
+      loaded.value &&
+      browserDataAvailable.value &&
+      todos.value.length === 0 &&
+      categories.value.length === 0,
   )
+  let accountVersion = 0
 
-  function persistTodos() {
-    saveTodos(todos.value)
+  function setAccount(id: string | null) {
+    if (userId.value === id) return
+    accountVersion += 1
+    userId.value = id
+    todos.value = []
+    categories.value = []
+    loaded.value = false
+    loading.value = false
+    saving.value = false
+    error.value = ''
+  }
+
+  async function refresh() {
+    if (!userId.value || busy.value) return
+    const id = userId.value
+    const version = accountVersion
+    loading.value = true
+    error.value = ''
+    try {
+      const data = await todoApi.fetchAccountData(id)
+      if (version !== accountVersion) return
+      todos.value = data.todos
+      categories.value = data.categories
+      loaded.value = true
+    } catch (cause) {
+      if (version === accountVersion)
+        error.value = errorMessage(cause, 'Could not load your tasks. Please try again.')
+    } finally {
+      if (version === accountVersion) loading.value = false
+    }
+  }
+
+  async function mutate<T>(
+    operation: (id: string) => Promise<T>,
+    commit: (result: T) => void,
+  ): Promise<T | null> {
+    if (!userId.value || !loaded.value || busy.value) return null
+    const id = userId.value
+    const version = accountVersion
+    saving.value = true
+    error.value = ''
+    try {
+      const result = await operation(id)
+      if (version !== accountVersion) return null
+      commit(result)
+      return result
+    } catch (cause) {
+      if (version === accountVersion)
+        error.value = errorMessage(cause, 'Could not save your changes. Please try again.')
+      return null
+    } finally {
+      if (version === accountVersion) saving.value = false
+    }
   }
 
   function isKnownCategory(categoryId: string | null) {
     return categoryId === null || categories.value.some((category) => category.id === categoryId)
   }
 
-  function addCategory(name: string): TodoCategory | null {
+  async function addCategory(name: string) {
     const trimmedName = name.trim()
-
     if (
       trimmedName.length === 0 ||
       trimmedName.length > MAX_CATEGORY_NAME_LENGTH ||
       categories.value.some((category) => category.name.toLowerCase() === trimmedName.toLowerCase())
-    ) {
+    )
       return null
-    }
-
-    const category = { id: crypto.randomUUID(), name: trimmedName }
-    categories.value.push(category)
-    saveCategories(categories.value)
-    return category
+    return mutate(
+      (id) => todoApi.createCategory(id, trimmedName),
+      (category) => {
+        categories.value.push(category)
+      },
+    )
   }
 
-  function addTodo(
+  async function addTodo(
     title: string,
     priorityId: TodoPriorityId = TodoPriorityId.Normal,
     categoryId: string | null = null,
   ) {
     const trimmedTitle = title.trim()
-
     if (
       trimmedTitle.length === 0 ||
       trimmedTitle.length > MAX_TITLE_LENGTH ||
       !isTodoPriorityId(priorityId) ||
       !isKnownCategory(categoryId)
-    ) {
-      return
-    }
-
-    todos.value.push({
-      id: crypto.randomUUID(),
-      title: trimmedTitle,
-      completed: false,
-      createdAt: new Date().toISOString(),
-      priorityId,
-      categoryId,
-    })
-    persistTodos()
-  }
-
-  function removeTodo(id: string) {
-    const remainingTodos = todos.value.filter((todo) => todo.id !== id)
-
-    if (remainingTodos.length === todos.value.length) {
-      return
-    }
-
-    todos.value = remainingTodos
-    persistTodos()
-  }
-
-  function toggleTodo(id: string) {
-    const todo = todos.value.find((item) => item.id === id)
-
-    if (!todo) {
-      return
-    }
-
-    todo.completed = !todo.completed
-    persistTodos()
-  }
-
-  function moveTodo(id: string, categoryId: string | null) {
-    const todo = todos.value.find((item) => item.id === id)
-
-    if (!todo || !isKnownCategory(categoryId) || todo.categoryId === categoryId) {
-      return
-    }
-
-    todo.categoryId = categoryId
-    persistTodos()
-  }
-
-  function clearCompleted(categoryId: TodoCategoryFilter = undefined) {
-    const activeTodos = todos.value.filter(
-      (todo) => !todo.completed || (categoryId !== undefined && todo.categoryId !== categoryId),
     )
+      return false
+    const result = await mutate(
+      (id) => todoApi.createTodo(id, trimmedTitle, priorityId, categoryId),
+      (todo) => {
+        todos.value.push(todo)
+      },
+    )
+    return result !== null
+  }
 
-    if (activeTodos.length === todos.value.length) {
+  function removeIds(ids: string[]) {
+    todos.value = todos.value.filter((todo) => !ids.includes(todo.id))
+  }
+
+  async function removeTodo(id: string) {
+    if (!todos.value.some((todo) => todo.id === id)) return
+    await mutate((owner) => todoApi.deleteTodo(owner, id), removeIds)
+  }
+
+  function replaceTodo(updatedTodo: Todo) {
+    todos.value = todos.value.map((todo) => (todo.id === updatedTodo.id ? updatedTodo : todo))
+  }
+
+  async function toggleTodo(id: string) {
+    const todo = todos.value.find((item) => item.id === id)
+    if (!todo) return
+    await mutate(
+      (owner) => todoApi.updateTodo(owner, id, { completed: !todo.completed }),
+      replaceTodo,
+    )
+  }
+
+  async function moveTodo(id: string, categoryId: string | null) {
+    const todo = todos.value.find((item) => item.id === id)
+    if (!todo || !isKnownCategory(categoryId) || todo.categoryId === categoryId) return
+    await mutate((owner) => todoApi.updateTodo(owner, id, { category_id: categoryId }), replaceTodo)
+  }
+
+  async function clearCompleted(categoryId: TodoCategoryFilter = undefined) {
+    if (
+      !todos.value.some(
+        (todo) => todo.completed && (categoryId === undefined || todo.categoryId === categoryId),
+      )
+    )
       return
-    }
+    await mutate((owner) => todoApi.deleteCompleted(owner, categoryId), removeIds)
+  }
 
-    todos.value = activeTodos
-    persistTodos()
+  async function importLocalData() {
+    if (!canImport.value) return
+    const result = await mutate(
+      async (id) => {
+        await todoApi.importBrowserData(id)
+        return true
+      },
+      () => {
+        browserDataAvailable.value = false
+      },
+    )
+    if (result) await refresh()
   }
 
   return {
     todos,
     categories,
+    loading,
+    saving,
+    loaded,
+    busy,
+    error,
+    canImport,
+    setAccount,
+    refresh,
     addCategory,
     addTodo,
     removeTodo,
     toggleTodo,
     moveTodo,
     clearCompleted,
+    importLocalData,
   }
 })

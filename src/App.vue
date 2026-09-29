@@ -1,39 +1,19 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
-import { computed, useId } from 'vue'
-import TodoCategoryForm from '@/components/TodoCategoryForm.vue'
-import TodoCategoryTabs from '@/components/TodoCategoryTabs.vue'
-import TodoFilters from '@/components/TodoFilters.vue'
-import TodoForm from '@/components/TodoForm.vue'
-import TodoList from '@/components/TodoList.vue'
-import TodoSummary from '@/components/TodoSummary.vue'
-import { useTodoFilters } from '@/composables/useTodoFilters'
+import AuthPanel from '@/components/AuthPanel.vue'
+import TodoWorkspace from '@/components/TodoWorkspace.vue'
 import { useTheme } from '@/composables/useTheme'
-import { useTodoStore } from '@/stores/todo'
-import { TodoFilter } from '@/types/todo'
+import { useAccountTodos } from '@/composables/useAccountTodos'
+import { useAuthStore } from '@/stores/auth'
 
-const todoStore = useTodoStore()
-const { todos, categories } = storeToRefs(todoStore)
-const { filter, priorityId, categoryId, filteredTodos, activeCount, hasCompleted } =
-  useTodoFilters(todos)
+const authStore = useAuthStore()
+const { user } = storeToRefs(authStore)
 const { theme, toggleTheme } = useTheme()
-const categoryPanelId = useId()
-const categoryPanelLabel = computed(
-  () =>
-    categories.value.find((category) => category.id === categoryId.value)?.name ??
-    (categoryId.value === undefined ? 'All tasks' : 'Uncategorized'),
-)
-
-function createCategory(name: string) {
-  const category = todoStore.addCategory(name)
-
-  if (category) {
-    categoryId.value = category.id
-    // A new category starts with its complete task list.
-    filter.value = TodoFilter.All
-    priorityId.value = null
-  }
-}
+useAccountTodos(user)
+onMounted(() => {
+  void authStore.initialize()
+})
 </script>
 
 <template>
@@ -53,40 +33,25 @@ function createCategory(name: string) {
         </div>
         <p class="todo-header__intro">A simple place to capture tasks and keep moving.</p>
       </header>
-
-      <div class="todo-categories">
-        <TodoCategoryForm :categories="categories" @create="createCategory" />
-        <TodoCategoryTabs
-          v-model="categoryId"
-          :categories="categories"
-          :panel-id="categoryPanelId"
-        />
-      </div>
-
-      <div :id="categoryPanelId" role="tabpanel" :aria-label="categoryPanelLabel" tabindex="0">
-        <TodoForm
-          :categories="categories"
-          :default-category-id="categoryId ?? null"
-          @add="todoStore.addTodo"
-        />
-
-        <div class="todo-controls">
-          <TodoFilters v-model="filter" v-model:priority-id="priorityId" />
-          <TodoSummary
-            :active-count="activeCount"
-            :has-completed="hasCompleted"
-            @clear-completed="todoStore.clearCompleted(categoryId)"
-          />
-        </div>
-
-        <TodoList
-          :todos="filteredTodos"
-          :categories="categories"
-          @toggle="todoStore.toggleTodo"
-          @remove="todoStore.removeTodo"
-          @move="todoStore.moveTodo"
-        />
-      </div>
+      <p v-if="!authStore.initialized" class="account-message" role="status">
+        Restoring your session…
+      </p>
+      <TodoWorkspace
+        v-else-if="user"
+        :key="user.id"
+        :user="user"
+        :account-busy="authStore.busy"
+        :auth-error="authStore.error"
+        @logout="authStore.logout"
+      />
+      <AuthPanel
+        v-else
+        :busy="authStore.busy"
+        :configured="authStore.configured"
+        :error="authStore.error"
+        :notice="authStore.notice"
+        @submit="authStore.authenticate"
+      />
     </section>
   </main>
 </template>

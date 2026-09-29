@@ -1,9 +1,10 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, login } from './fixtures/cloud.js'
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
   await page.evaluate(() => localStorage.clear())
   await page.reload()
+  await login(page)
 })
 
 test('manages, filters, and persists Todos', async ({ page }) => {
@@ -37,7 +38,7 @@ test('manages, filters, and persists Todos', async ({ page }) => {
   await page.getByRole('button', { name: 'All priorities', exact: true }).click()
 
   const firstTodo = page.getByRole('checkbox', { name: 'First task' })
-  await firstTodo.check()
+  await firstTodo.click()
   await expect(firstTodo).toBeChecked()
   await expect(page.getByText('1 item left')).toBeVisible()
 

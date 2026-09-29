@@ -6,6 +6,7 @@ import { prioritiesList, TodoPriorityId } from '@/types/todo'
 const props = defineProps<{
   categories: TodoCategory[]
   defaultCategoryId: string | null
+  resetVersion?: number
 }>()
 
 const emit = defineEmits<{
@@ -30,10 +31,16 @@ function submitTodo() {
   }
 
   emit('add', title.value, priorityId.value, categoryId.value)
-  title.value = ''
-  priorityId.value = TodoPriorityId.Normal
-  categoryId.value = props.defaultCategoryId
 }
+
+watch(
+  () => props.resetVersion,
+  () => {
+    title.value = ''
+    priorityId.value = TodoPriorityId.Normal
+    categoryId.value = props.defaultCategoryId
+  },
+)
 </script>
 
 <template>

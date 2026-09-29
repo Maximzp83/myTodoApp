@@ -24,6 +24,8 @@ describe('TodoForm', () => {
     await wrapper.get('form').trigger('submit')
 
     expect(wrapper.emitted('add')).toEqual([['Critical task', TodoPriorityId.Critical, null]])
+    expect(titleInput.element.value).toBe('Critical task')
+    await wrapper.setProps({ resetVersion: 1 })
     expect(titleInput.element.value).toBe('')
     expect(Number(prioritySelect.element.value)).toBe(TodoPriorityId.Normal)
   })
@@ -46,6 +48,7 @@ describe('TodoForm', () => {
     await wrapper.get('form').trigger('submit')
 
     expect(wrapper.emitted('add')).toEqual([['Personal task', TodoPriorityId.Normal, 'personal']])
+    await wrapper.setProps({ resetVersion: 1 })
     expect(categorySelect.element.value).toBe('work')
 
     await wrapper.setProps({ defaultCategoryId: 'personal' })

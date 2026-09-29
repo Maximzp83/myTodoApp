@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
+import { test, expect, login } from './fixtures/cloud.js'
 
 async function createCategory(page: Page, name: string) {
   await page.getByLabel('New category', { exact: true }).fill(name)
@@ -12,12 +13,14 @@ async function createCategory(page: Page, name: string) {
 async function addTodo(page: Page, title: string) {
   await page.getByLabel('New Todo', { exact: true }).fill(title)
   await page.getByRole('button', { name: 'Add Todo', exact: true }).click()
+  await expect(page.getByRole('checkbox', { name: title, exact: true })).toBeVisible()
 }
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
   await page.evaluate(() => localStorage.clear())
   await page.reload()
+  await login(page)
 })
 
 test('creates category tabs, assigns and moves tasks, and persists them', async ({
@@ -80,12 +83,12 @@ test('creates category tabs, assigns and moves tasks, and persists them', async 
 test('clears completed tasks only in the selected category', async ({ page }) => {
   await createCategory(page, 'Work')
   await addTodo(page, 'Completed work task')
-  await page.getByRole('checkbox', { name: 'Completed work task' }).check()
+  await page.getByRole('checkbox', { name: 'Completed work task' }).click()
   await addTodo(page, 'Active work task')
 
   await createCategory(page, 'Personal')
   await addTodo(page, 'Completed personal task')
-  await page.getByRole('checkbox', { name: 'Completed personal task' }).check()
+  await page.getByRole('checkbox', { name: 'Completed personal task' }).click()
 
   await page.getByRole('tab', { name: 'Work', exact: true }).click()
   await expect(page.getByText('1 item left', { exact: true })).toBeVisible()
@@ -114,6 +117,7 @@ test('keeps legacy tasks available in the uncategorized tab', async ({ page }) =
     )
   })
   await page.reload()
+  await page.getByRole('button', { name: 'Import browser tasks' }).click()
   await createCategory(page, 'Work')
   await page.getByRole('tab', { name: 'Uncategorized', exact: true }).click()
   await expect(page.getByRole('checkbox', { name: 'Task saved before categories' })).toBeChecked()

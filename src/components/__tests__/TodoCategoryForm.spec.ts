@@ -16,6 +16,8 @@ describe('TodoCategoryForm', () => {
     await wrapper.get('form').trigger('submit')
 
     expect(wrapper.emitted('create')).toEqual([['Work']])
+    expect(input.element.value).toBe('  Work  ')
+    await wrapper.setProps({ resetVersion: 1 })
     expect(input.element.value).toBe('')
   })
 

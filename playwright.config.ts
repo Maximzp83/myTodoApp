@@ -99,13 +99,18 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
+    env: {
+      VITE_SUPABASE_URL: 'https://todo-e2e.invalid',
+      VITE_SUPABASE_PUBLISHABLE_KEY: 'publishable-test-only',
+      VITE_BASE_PATH: '/',
+    },
     /**
      * Use the dev server by default for faster feedback loop.
      * Use the preview server on CI for more realistic testing.
-     * Playwright will re-use the local server if there is already a dev-server running.
+     * Always start a dedicated server with the isolated test API configuration.
      */
-    command: process.env.CI ? 'npm run preview' : 'npm run dev',
+    command: process.env.CI ? 'npm run build-only && npm run preview' : 'npm run dev',
     port: process.env.CI ? 4173 : 5173,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
   },
 })

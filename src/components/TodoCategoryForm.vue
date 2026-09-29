@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { toRef } from 'vue'
+import { toRef, watch } from 'vue'
 import { useCategoryForm } from '@/composables/useCategoryForm'
 import { MAX_CATEGORY_NAME_LENGTH, type TodoCategory } from '@/types/category'
 
 const props = defineProps<{
   categories: TodoCategory[]
+  resetVersion?: number
 }>()
 
 const emit = defineEmits<{
@@ -19,8 +20,14 @@ function submitCategory() {
   }
 
   emit('create', trimmedName.value)
-  name.value = ''
 }
+
+watch(
+  () => props.resetVersion,
+  () => {
+    name.value = ''
+  },
+)
 </script>
 
 <template>

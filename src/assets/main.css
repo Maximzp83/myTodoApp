@@ -94,6 +94,96 @@ h1 {
   color: #64748b;
 }
 
+.auth-panel {
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: 0 2.5rem 2.5rem;
+}
+
+.auth-panel h2 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.auth-panel__intro {
+  margin: 0.75rem 0;
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.auth-panel__modes {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1.25rem 0;
+}
+
+.auth-form__fields,
+.todo-workspace {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.auth-form__fields {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.auth-form__fields label {
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.auth-form__fields .button {
+  margin-top: 0.5rem;
+}
+
+.account-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 2.5rem 1.5rem;
+}
+
+.account-toolbar__email {
+  min-width: 0;
+  margin: 0;
+  color: #64748b;
+  overflow-wrap: anywhere;
+}
+
+.account-toolbar__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 1rem;
+}
+
+.account-message {
+  margin: 0;
+  padding: 0.75rem 2.5rem 1.25rem;
+  color: #475569;
+  overflow-wrap: anywhere;
+}
+
+.auth-panel .account-message {
+  padding: 1rem 0 0;
+}
+
+.account-message--error {
+  color: #b91c1c;
+}
+
+.browser-import {
+  padding: 0 2.5rem 1.5rem;
+}
+
+.browser-import p {
+  color: #64748b;
+}
+
 .todo-form {
   display: flex;
   align-items: flex-end;
@@ -526,6 +616,17 @@ h1 {
   color: #fda4af;
 }
 
+:root[data-theme='dark'] .auth-panel__intro,
+:root[data-theme='dark'] .account-toolbar__email,
+:root[data-theme='dark'] .browser-import p,
+:root[data-theme='dark'] .account-message {
+  color: #94a3b8;
+}
+
+:root[data-theme='dark'] .account-message--error {
+  color: #fda4af;
+}
+
 :root[data-theme='dark'] .todo-form__input,
 :root[data-theme='dark'] .todo-form__select {
   border-color: #475569;
@@ -594,6 +695,21 @@ h1 {
   }
 
   .todo-categories {
+    padding-inline: 1.25rem;
+  }
+
+  .auth-panel {
+    padding-inline: 1.25rem;
+  }
+
+  .account-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+    padding-inline: 1.25rem;
+  }
+
+  .account-message,
+  .browser-import {
     padding-inline: 1.25rem;
   }
 

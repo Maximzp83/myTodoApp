@@ -22,6 +22,14 @@ const priorityLabel = computed(
 function changeCategory(event: Event) {
   if (event.target instanceof HTMLSelectElement) {
     emit('move', props.todo.id, event.target.value || null)
+    event.target.value = props.todo.categoryId ?? ''
+  }
+}
+
+function toggleCompleted(event: Event) {
+  if (event.target instanceof HTMLInputElement) {
+    emit('toggle', props.todo.id)
+    event.target.checked = props.todo.completed
   }
 }
 </script>
@@ -33,7 +41,7 @@ function changeCategory(event: Event) {
       class="todo-item__checkbox"
       type="checkbox"
       :checked="todo.completed"
-      @change="emit('toggle', todo.id)"
+      @change="toggleCompleted"
     />
     <div class="todo-item__content">
       <label class="todo-item__title" :for="`todo-${todo.id}`">{{ todo.title }}</label>

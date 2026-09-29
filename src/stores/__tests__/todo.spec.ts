@@ -1,12 +1,10 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { loadCategories, saveCategories } from '@/services/categoryStorage'
-import { loadTodos, saveTodos } from '@/services/todoStorage'
+import * as api from '@/services/todoApi'
 import { useTodoStore } from '@/stores/todo'
 import { TodoPriorityId, type Todo } from '@/types/todo'
 
-vi.mock('@/services/todoStorage')
-vi.mock('@/services/categoryStorage')
+vi.mock('@/services/todoApi')
 
 const activeTodo: Todo = {
   id: 'active-todo',
@@ -16,193 +14,212 @@ const activeTodo: Todo = {
   priorityId: TodoPriorityId.Normal,
   categoryId: null,
 }
-
 const completedTodo: Todo = {
+  ...activeTodo,
   id: 'completed-todo',
   title: 'Completed Todo',
   completed: true,
-  createdAt: '2026-08-14T13:00:00.000Z',
-  priorityId: TodoPriorityId.High,
-  categoryId: null,
+}
+const work = { id: 'work', name: 'Work' }
+
+async function readyStore(todos: Todo[] = [], categories = [work]) {
+  vi.mocked(api.fetchAccountData).mockResolvedValue({
+    todos: todos.map((todo) => ({ ...todo })),
+    categories,
+  })
+  const store = useTodoStore()
+  store.setAccount('account-a')
+  await store.refresh()
+  return store
 }
 
-describe('Todo store', () => {
+describe('cloud Todo store', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-    vi.mocked(loadTodos).mockReturnValue([])
-    vi.mocked(loadCategories).mockReturnValue([])
+    vi.resetAllMocks()
+    vi.mocked(api.hasBrowserData).mockReturnValue(false)
     setActivePinia(createPinia())
   })
 
-  it('loads the initial Todo collection from storage', () => {
-    vi.mocked(loadTodos).mockReturnValue([{ ...activeTodo }])
-
+  it('does not load or write data before sign-in', async () => {
     const store = useTodoStore()
-
-    expect(store.todos).toEqual([activeTodo])
+    await store.refresh()
+    await store.addTodo('Private task')
+    expect(store.todos).toEqual([])
+    expect(api.fetchAccountData).not.toHaveBeenCalled()
+    expect(api.createTodo).not.toHaveBeenCalled()
   })
 
-  it('adds a trimmed Todo and persists the collection', () => {
-    const store = useTodoStore()
+  it('loads tasks and categories for the signed-in account', async () => {
+    const store = await readyStore([activeTodo])
+    expect(api.fetchAccountData).toHaveBeenCalledWith('account-a')
+    expect(store.todos).toEqual([activeTodo])
+    expect(store.categories).toEqual([work])
+    expect(store.loaded).toBe(true)
+  })
 
-    store.addTodo('  Learn Pinia  ', TodoPriorityId.High)
-
-    expect(store.todos).toHaveLength(1)
-    expect(store.todos[0]).toEqual({
-      id: expect.any(String),
+  it('adds a trimmed task and commits the server result', async () => {
+    const store = await readyStore()
+    const saved = {
+      ...activeTodo,
       title: 'Learn Pinia',
-      completed: false,
-      createdAt: expect.any(String),
       priorityId: TodoPriorityId.High,
-      categoryId: null,
-    })
-    expect(saveTodos).toHaveBeenCalledExactlyOnceWith(store.todos)
+      categoryId: work.id,
+    }
+    vi.mocked(api.createTodo).mockResolvedValue(saved)
+    expect(await store.addTodo('  Learn Pinia  ', TodoPriorityId.High, work.id)).toBe(true)
+    expect(api.createTodo).toHaveBeenCalledExactlyOnceWith(
+      'account-a',
+      'Learn Pinia',
+      TodoPriorityId.High,
+      work.id,
+    )
+    expect(store.todos).toEqual([saved])
   })
 
-  it('rejects empty and overlong titles without persisting', () => {
-    const store = useTodoStore()
-
-    store.addTodo('   ')
-    store.addTodo('a'.repeat(121))
-
-    expect(store.todos).toEqual([])
-    expect(saveTodos).not.toHaveBeenCalled()
+  it('rejects invalid task input without sending requests', async () => {
+    const store = await readyStore()
+    await store.addTodo(' ')
+    await store.addTodo('a'.repeat(121))
+    await store.addTodo('Bad priority', 999 as TodoPriorityId)
+    await store.addTodo('Bad category', TodoPriorityId.Normal, 'missing')
+    expect(api.createTodo).not.toHaveBeenCalled()
   })
 
-  it('rejects an invalid runtime priority without persisting', () => {
-    const store = useTodoStore()
-    const invalidPriorityId = 999 as TodoPriorityId
-
-    store.addTodo('Invalid priority', invalidPriorityId)
-
-    expect(store.todos).toEqual([])
-    expect(saveTodos).not.toHaveBeenCalled()
+  it('creates a category and rejects duplicate, empty, or overlong names', async () => {
+    const store = await readyStore([], [])
+    vi.mocked(api.createCategory).mockResolvedValue(work)
+    expect(await store.addCategory('  Work  ')).toEqual(work)
+    expect(api.createCategory).toHaveBeenCalledExactlyOnceWith('account-a', 'Work')
+    expect(await store.addCategory('wOrK')).toBeNull()
+    expect(await store.addCategory(' ')).toBeNull()
+    expect(await store.addCategory('a'.repeat(51))).toBeNull()
+    expect(api.createCategory).toHaveBeenCalledTimes(1)
   })
 
-  it('removes a Todo and persists the remaining collection', () => {
-    vi.mocked(loadTodos).mockReturnValue([{ ...activeTodo }, { ...completedTodo }])
-    const store = useTodoStore()
-
-    store.removeTodo(activeTodo.id)
-
-    expect(store.todos).toEqual([completedTodo])
-    expect(saveTodos).toHaveBeenCalledWith(store.todos)
+  it('does not change tasks when the server rejects a save', async () => {
+    const store = await readyStore([activeTodo])
+    vi.mocked(api.updateTodo).mockRejectedValue(new Error('Network unavailable'))
+    await store.toggleTodo(activeTodo.id)
+    expect(store.todos).toEqual([activeTodo])
+    expect(store.error).toBe('Network unavailable')
+    expect(store.busy).toBe(false)
   })
 
-  it('toggles a Todo and persists the collection', () => {
-    vi.mocked(loadTodos).mockReturnValue([{ ...activeTodo }])
-    const store = useTodoStore()
-
-    store.toggleTodo(activeTodo.id)
-
+  it('toggles and moves a task using confirmed server responses', async () => {
+    const store = await readyStore([activeTodo])
+    const toggled = { ...activeTodo, completed: true }
+    vi.mocked(api.updateTodo)
+      .mockResolvedValueOnce(toggled)
+      .mockResolvedValueOnce({ ...toggled, categoryId: work.id })
+    await store.toggleTodo(activeTodo.id)
     expect(store.todos[0]?.completed).toBe(true)
-    expect(saveTodos).toHaveBeenCalledWith(store.todos)
+    await store.moveTodo(activeTodo.id, work.id)
+    expect(store.todos[0]?.categoryId).toBe(work.id)
+    expect(api.updateTodo).toHaveBeenLastCalledWith('account-a', activeTodo.id, {
+      category_id: work.id,
+    })
   })
 
-  it('clears completed Todos and persists the active collection', () => {
-    vi.mocked(loadTodos).mockReturnValue([{ ...activeTodo }, { ...completedTodo }])
+  it('removes only ids confirmed deleted by the server', async () => {
+    const store = await readyStore([activeTodo, completedTodo])
+    vi.mocked(api.deleteTodo).mockResolvedValue([activeTodo.id])
+    await store.removeTodo(activeTodo.id)
+    expect(store.todos).toEqual([completedTodo])
+  })
+
+  it('scopes clearing completed tasks to the selected category', async () => {
+    const workCompleted = { ...completedTodo, id: 'work-completed', categoryId: work.id }
+    const store = await readyStore([activeTodo, completedTodo, workCompleted])
+    vi.mocked(api.deleteCompleted).mockResolvedValue([workCompleted.id])
+    await store.clearCompleted(work.id)
+    expect(api.deleteCompleted).toHaveBeenCalledWith('account-a', work.id)
+    expect(store.todos).toEqual([activeTodo, completedTodo])
+    vi.mocked(api.deleteCompleted).mockResolvedValue([completedTodo.id])
+    await store.clearCompleted(null)
+    expect(api.deleteCompleted).toHaveBeenLastCalledWith('account-a', null)
+  })
+
+  it('ignores unchanged or invalid operations', async () => {
+    const store = await readyStore([activeTodo])
+    await store.removeTodo('missing')
+    await store.toggleTodo('missing')
+    await store.moveTodo(activeTodo.id, 'missing')
+    await store.moveTodo(activeTodo.id, null)
+    await store.clearCompleted()
+    expect(api.updateTodo).not.toHaveBeenCalled()
+    expect(api.deleteTodo).not.toHaveBeenCalled()
+    expect(api.deleteCompleted).not.toHaveBeenCalled()
+  })
+
+  it('clears account data immediately on sign-out', async () => {
+    const store = await readyStore([activeTodo])
+    store.setAccount(null)
+    expect(store.todos).toEqual([])
+    expect(store.categories).toEqual([])
+    expect(store.loaded).toBe(false)
+  })
+
+  it('ignores a late load response after account switching', async () => {
     const store = useTodoStore()
+    store.setAccount('account-a')
+    let resolveLoad: (data: Awaited<ReturnType<typeof api.fetchAccountData>>) => void = () => {
+      throw new Error('Load was not started')
+    }
+    vi.mocked(api.fetchAccountData).mockReturnValue(
+      new Promise((resolve) => {
+        resolveLoad = resolve
+      }),
+    )
+    const loading = store.refresh()
+    store.setAccount('account-b')
+    resolveLoad({ todos: [activeTodo], categories: [work] })
+    await loading
+    expect(store.todos).toEqual([])
+    expect(store.categories).toEqual([])
+    expect(store.loaded).toBe(false)
+  })
 
-    store.clearCompleted()
+  it('ignores a late mutation result after sign-out', async () => {
+    const store = await readyStore([activeTodo])
+    let resolveSave: (todo: Todo) => void = () => {
+      throw new Error('Save was not started')
+    }
+    vi.mocked(api.updateTodo).mockReturnValue(
+      new Promise((resolve) => {
+        resolveSave = resolve
+      }),
+    )
+    const saving = store.toggleTodo(activeTodo.id)
+    store.setAccount(null)
+    resolveSave({ ...activeTodo, completed: true })
+    await saving
+    expect(store.todos).toEqual([])
+    expect(store.saving).toBe(false)
+  })
 
+  it('supports retrying an initial load failure', async () => {
+    const store = useTodoStore()
+    store.setAccount('account-a')
+    vi.mocked(api.fetchAccountData)
+      .mockRejectedValueOnce(new Error('Load failed'))
+      .mockResolvedValueOnce({ todos: [activeTodo], categories: [] })
+    await store.refresh()
+    expect(store.loaded).toBe(false)
+    expect(store.error).toBe('Load failed')
+    await store.refresh()
     expect(store.todos).toEqual([activeTodo])
-    expect(saveTodos).toHaveBeenCalledWith(store.todos)
+    expect(store.error).toBe('')
   })
 
-  it('does not persist when an operation leaves state unchanged', () => {
-    vi.mocked(loadTodos).mockReturnValue([{ ...activeTodo }])
-    const store = useTodoStore()
-
-    store.removeTodo('missing-todo')
-    store.toggleTodo('missing-todo')
-    store.clearCompleted()
-
-    expect(saveTodos).not.toHaveBeenCalled()
-  })
-
-  it('creates a trimmed category and persists it', () => {
-    const store = useTodoStore()
-
-    const category = store.addCategory('  Work  ')
-
-    expect(category).toEqual({ id: expect.any(String), name: 'Work' })
-    expect(store.categories).toEqual([category])
-    expect(saveCategories).toHaveBeenCalledExactlyOnceWith(store.categories)
-  })
-
-  it('rejects empty, overlong, and duplicate category names', () => {
-    vi.mocked(loadCategories).mockReturnValue([{ id: 'work', name: 'Work' }])
-    const store = useTodoStore()
-
-    expect(store.addCategory('  ')).toBeNull()
-    expect(store.addCategory('a'.repeat(51))).toBeNull()
-    expect(store.addCategory('  wOrK  ')).toBeNull()
-    expect(store.categories).toEqual([{ id: 'work', name: 'Work' }])
-    expect(saveCategories).not.toHaveBeenCalled()
-  })
-
-  it('adds tasks to known categories and rejects an unknown category', () => {
-    vi.mocked(loadCategories).mockReturnValue([{ id: 'work', name: 'Work' }])
-    const store = useTodoStore()
-
-    store.addTodo('Categorized task', TodoPriorityId.High, 'work')
-    store.addTodo('Invalid category', TodoPriorityId.Normal, 'missing')
-
-    expect(store.todos).toHaveLength(1)
-    expect(store.todos[0]).toMatchObject({ title: 'Categorized task', categoryId: 'work' })
-    expect(saveTodos).toHaveBeenCalledTimes(1)
-  })
-
-  it('moves existing tasks between a category and uncategorized', () => {
-    vi.mocked(loadCategories).mockReturnValue([{ id: 'work', name: 'Work' }])
-    vi.mocked(loadTodos).mockReturnValue([{ ...activeTodo }])
-    const store = useTodoStore()
-
-    store.moveTodo(activeTodo.id, 'work')
-    expect(store.todos[0]?.categoryId).toBe('work')
-
-    store.moveTodo(activeTodo.id, null)
-    expect(store.todos[0]?.categoryId).toBeNull()
-    expect(saveTodos).toHaveBeenCalledTimes(2)
-  })
-
-  it('does not persist invalid or unchanged category moves', () => {
-    vi.mocked(loadTodos).mockReturnValue([{ ...activeTodo }])
-    const store = useTodoStore()
-
-    store.moveTodo('missing', null)
-    store.moveTodo(activeTodo.id, 'missing')
-    store.moveTodo(activeTodo.id, null)
-
+  it('allows explicit browser import only into an empty, loaded account', async () => {
+    vi.mocked(api.hasBrowserData).mockReturnValue(true)
+    const store = await readyStore([], [])
+    expect(store.canImport).toBe(true)
+    vi.mocked(api.importBrowserData).mockResolvedValue()
+    vi.mocked(api.fetchAccountData).mockResolvedValue({ todos: [activeTodo], categories: [] })
+    await store.importLocalData()
+    expect(api.importBrowserData).toHaveBeenCalledExactlyOnceWith('account-a')
     expect(store.todos).toEqual([activeTodo])
-    expect(saveTodos).not.toHaveBeenCalled()
-  })
-
-  it('keeps tasks with an unavailable category as uncategorized', () => {
-    vi.mocked(loadTodos).mockReturnValue([{ ...activeTodo, categoryId: 'missing' }])
-
-    expect(useTodoStore().todos).toEqual([activeTodo])
-  })
-
-  it('clears completed tasks only in the selected category', () => {
-    vi.mocked(loadCategories).mockReturnValue([{ id: 'work', name: 'Work' }])
-    vi.mocked(loadTodos).mockReturnValue([
-      { ...activeTodo, categoryId: 'work' },
-      { ...completedTodo, id: 'work-completed', categoryId: 'work' },
-      { ...completedTodo },
-    ])
-    const store = useTodoStore()
-
-    store.clearCompleted('work')
-
-    expect(store.todos.map((todo) => todo.id)).toEqual([activeTodo.id, completedTodo.id])
-    expect(saveTodos).toHaveBeenCalledTimes(1)
-
-    store.clearCompleted('missing')
-    expect(saveTodos).toHaveBeenCalledTimes(1)
-
-    store.clearCompleted(null)
-    expect(store.todos.map((todo) => todo.id)).toEqual([activeTodo.id])
-    expect(saveTodos).toHaveBeenCalledTimes(2)
+    expect(store.canImport).toBe(false)
   })
 })
