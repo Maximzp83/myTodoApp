@@ -22,6 +22,20 @@ const completedTodo: Todo = {
 }
 const work = { id: 'work', name: 'Work' }
 
+function deferred<T>() {
+  let resolve: (value: T) => void = () => {
+    throw new Error('Promise was not initialized')
+  }
+  let reject: (cause: unknown) => void = () => {
+    throw new Error('Promise was not initialized')
+  }
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, resolve, reject }
+}
+
 async function readyStore(todos: Todo[] = [], categories = [work]) {
   vi.mocked(api.fetchAccountData).mockResolvedValue({
     todos: todos.map((todo) => ({ ...todo })),
@@ -103,6 +117,115 @@ describe('cloud Todo store', () => {
     expect(store.todos).toEqual([activeTodo])
     expect(store.error).toBe('Network unavailable')
     expect(store.busy).toBe(false)
+  })
+
+  it('toggles immediately and locks only that task until the response arrives', async () => {
+    const store = await readyStore([activeTodo, completedTodo])
+    const update = deferred<Todo>()
+    vi.mocked(api.updateTodo).mockReturnValue(update.promise)
+    const saving = store.toggleTodo(activeTodo.id)
+    expect(store.todos[0]?.completed).toBe(true)
+    expect(store.togglingIds.has(activeTodo.id)).toBe(true)
+    expect(store.togglingIds.has(completedTodo.id)).toBe(false)
+    expect(store.busy).toBe(false)
+    expect(store.saving).toBe(false)
+    await store.toggleTodo(activeTodo.id)
+    expect(api.updateTodo).toHaveBeenCalledExactlyOnceWith('account-a', activeTodo.id, {
+      completed: true,
+    })
+    update.resolve({ ...activeTodo, completed: true })
+    await saving
+    expect(store.todos[0]?.completed).toBe(true)
+    expect(store.togglingIds.size).toBe(0)
+  })
+
+  it('rolls back an optimistic toggle when saving fails', async () => {
+    const store = await readyStore([completedTodo])
+    const update = deferred<Todo>()
+    vi.mocked(api.updateTodo).mockReturnValue(update.promise)
+    const saving = store.toggleTodo(completedTodo.id)
+    expect(store.todos[0]?.completed).toBe(false)
+    update.reject(new Error('Save failed'))
+    await saving
+    expect(store.todos).toEqual([completedTodo])
+    expect(store.error).toBe('Save failed')
+    expect(store.togglingIds.size).toBe(0)
+  })
+
+  it('saves different toggles concurrently and rolls back only the failed task', async () => {
+    const other = { ...activeTodo, id: 'other-todo' }
+    const store = await readyStore([activeTodo, other])
+    const first = deferred<Todo>()
+    const second = deferred<Todo>()
+    vi.mocked(api.updateTodo).mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+    const firstSave = store.toggleTodo(activeTodo.id)
+    const secondSave = store.toggleTodo(other.id)
+    expect(store.todos.every((todo) => todo.completed)).toBe(true)
+    expect(store.togglingIds.size).toBe(2)
+    second.resolve({ ...other, completed: true })
+    await secondSave
+    expect(store.togglingIds.has(activeTodo.id)).toBe(true)
+    expect(store.togglingIds.has(other.id)).toBe(false)
+    first.reject(new Error('First save failed'))
+    await firstSave
+    expect(store.todos).toEqual([activeTodo, { ...other, completed: true }])
+    expect(store.togglingIds.size).toBe(0)
+  })
+
+  it('waits for pending toggles before refreshing from the server', async () => {
+    const store = await readyStore([activeTodo])
+    const update = deferred<Todo>()
+    vi.mocked(api.updateTodo).mockReturnValue(update.promise)
+    const saving = store.toggleTodo(activeTodo.id)
+    vi.mocked(api.fetchAccountData).mockResolvedValue({
+      todos: [{ ...activeTodo, completed: true }],
+      categories: [work],
+    })
+    const refreshing = store.refresh()
+    expect(api.fetchAccountData).toHaveBeenCalledTimes(1)
+    expect(store.todos[0]?.completed).toBe(true)
+    update.resolve({ ...activeTodo, completed: true })
+    await Promise.all([saving, refreshing])
+    expect(api.fetchAccountData).toHaveBeenCalledTimes(2)
+    expect(store.todos[0]?.completed).toBe(true)
+  })
+
+  it('waits for confirmation before clearing optimistically completed tasks', async () => {
+    const store = await readyStore([activeTodo])
+    const update = deferred<Todo>()
+    vi.mocked(api.updateTodo).mockReturnValue(update.promise)
+    vi.mocked(api.deleteCompleted).mockResolvedValue([activeTodo.id])
+    const saving = store.toggleTodo(activeTodo.id)
+    const clearing = store.clearCompleted()
+    expect(api.deleteCompleted).not.toHaveBeenCalled()
+    update.resolve({ ...activeTodo, completed: true })
+    await Promise.all([saving, clearing])
+    expect(api.deleteCompleted).toHaveBeenCalledExactlyOnceWith('account-a', undefined)
+    expect(store.todos).toEqual([])
+  })
+
+  it("keeps the next account's pending toggle when an old response arrives", async () => {
+    const store = await readyStore([activeTodo])
+    const first = deferred<Todo>()
+    const second = deferred<Todo>()
+    vi.mocked(api.updateTodo).mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+    const firstSave = store.toggleTodo(activeTodo.id)
+    store.setAccount('account-b')
+    expect(store.togglingIds.size).toBe(0)
+    vi.mocked(api.fetchAccountData).mockResolvedValue({
+      todos: [{ ...activeTodo, completed: true }],
+      categories: [],
+    })
+    await store.refresh()
+    const secondSave = store.toggleTodo(activeTodo.id)
+    first.reject(new Error('Old account failure'))
+    await firstSave
+    expect(store.error).toBe('')
+    expect(store.todos[0]?.completed).toBe(false)
+    expect(store.togglingIds.has(activeTodo.id)).toBe(true)
+    second.resolve({ ...activeTodo, completed: false })
+    await secondSave
+    expect(store.togglingIds.size).toBe(0)
   })
 
   it('renames a category using the server result without changing its tasks', async () => {

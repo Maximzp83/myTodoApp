@@ -339,6 +339,49 @@ h1 {
   padding: 0.3rem;
 }
 
+.category-tab-wrap {
+  position: relative;
+  flex: none;
+}
+
+.category-tab__manage {
+  position: absolute;
+  top: 50%;
+  right: 0.35rem;
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 0;
+  border-radius: 0.4rem;
+  padding: 0;
+  color: #64748b;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%);
+  transition: opacity 120ms ease;
+}
+
+.category-tab-wrap:hover .category-tab__manage,
+.category-tab-wrap:focus-within .category-tab__manage,
+.category-tab__manage[aria-expanded='true'] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.category-tab__manage:hover {
+  color: #3730a3;
+  background: #c7d2fe;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .category-tab__manage {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
 .category-actions {
   max-width: 30rem;
   margin-top: 1rem;
@@ -379,6 +422,10 @@ h1 {
   white-space: nowrap;
 }
 
+.category-tab--editable {
+  padding-inline-end: 2.8rem;
+}
+
 .category-tab:hover {
   color: #3730a3;
   background: #eef2ff;
@@ -391,6 +438,7 @@ h1 {
 }
 
 .category-tab:focus-visible,
+.category-tab__manage:focus-visible,
 .button:focus-visible,
 .todo-filter:focus-visible {
   outline: 2px solid #6366f1;
@@ -616,6 +664,15 @@ h1 {
 :root[data-theme='dark'] .category-tab {
   color: #cbd5e1;
   background: #334155;
+}
+
+:root[data-theme='dark'] .category-tab__manage {
+  color: #cbd5e1;
+}
+
+:root[data-theme='dark'] .category-tab__manage:hover {
+  color: #e0e7ff;
+  background: #4f46e5;
 }
 
 :root[data-theme='dark'] .category-tab:hover,

@@ -12,6 +12,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   rename: [id: string, name: string]
   remove: [id: string]
+  close: []
 }>()
 const mode = ref<'view' | 'edit' | 'delete'>('view')
 const id = useId()
@@ -57,7 +58,7 @@ watch(() => props.resetVersion, cancel)
 </script>
 
 <template>
-  <div class="category-actions">
+  <div class="category-actions" @keydown.esc.prevent="mode === 'view' && !busy && emit('close')">
     <div v-if="mode === 'view'" class="category-actions__buttons">
       <button
         ref="editButton"
@@ -81,7 +82,7 @@ watch(() => props.resetVersion, cancel)
     <form
       v-else-if="mode === 'edit'"
       @submit.prevent="submit"
-      @keydown.esc.prevent="!busy && cancel()"
+      @keydown.esc.stop.prevent="!busy && cancel()"
     >
       <label class="category-form__label" :for="`${id}-name`">Category name</label>
       <input
@@ -110,7 +111,11 @@ watch(() => props.resetVersion, cancel)
         </button>
       </div>
     </form>
-    <div v-else class="category-actions__confirmation" @keydown.esc.prevent="!busy && cancel()">
+    <div
+      v-else
+      class="category-actions__confirmation"
+      @keydown.esc.stop.prevent="!busy && cancel()"
+    >
       <p>Delete “{{ category.name }}”? Its tasks will be kept in Uncategorized.</p>
       <div class="category-actions__buttons">
         <button

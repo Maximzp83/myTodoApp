@@ -6,10 +6,12 @@ const props = defineProps<{
   categories: TodoCategory[]
   modelValue: TodoCategoryFilter
   panelId: string
+  actionsCategoryId: string | null
 }>()
 
 const emit = defineEmits<{
   'update:modelValue': [categoryId: TodoCategoryFilter]
+  manage: [categoryId: string]
 }>()
 
 const id = useId()
@@ -51,7 +53,8 @@ function navigateTabs(event: KeyboardEvent, index: number) {
 
   event.preventDefault()
   emit('update:modelValue', tab.categoryId)
-  event.currentTarget.parentElement
+  event.currentTarget
+    .closest('[role="tablist"]')
     ?.querySelectorAll<HTMLButtonElement>('[role="tab"]')
     [nextIndex]?.focus()
 }
@@ -59,21 +62,48 @@ function navigateTabs(event: KeyboardEvent, index: number) {
 
 <template>
   <div class="category-tabs" role="tablist" aria-label="Todo categories">
-    <button
-      v-for="(tab, index) in tabs"
-      :id="tab.id"
-      :key="tab.id"
-      class="category-tab"
-      type="button"
-      role="tab"
-      :aria-controls="panelId"
-      :aria-selected="modelValue === tab.categoryId"
-      :title="tab.label"
-      :tabindex="modelValue === tab.categoryId ? 0 : -1"
-      @click="emit('update:modelValue', tab.categoryId)"
-      @keydown="navigateTabs($event, index)"
-    >
-      {{ tab.label }}
-    </button>
+    <div v-for="(tab, index) in tabs" :key="tab.id" class="category-tab-wrap" role="presentation">
+      <button
+        :id="tab.id"
+        class="category-tab"
+        :class="{ 'category-tab--editable': typeof tab.categoryId === 'string' }"
+        type="button"
+        role="tab"
+        :aria-controls="panelId"
+        :aria-selected="modelValue === tab.categoryId"
+        :title="tab.label"
+        :tabindex="modelValue === tab.categoryId ? 0 : -1"
+        @click="emit('update:modelValue', tab.categoryId)"
+        @keydown="navigateTabs($event, index)"
+      >
+        {{ tab.label }}
+      </button>
+      <button
+        v-if="typeof tab.categoryId === 'string'"
+        :id="`${panelId}-manage-${tab.categoryId}`"
+        class="category-tab__manage"
+        type="button"
+        :aria-label="`Manage category ${tab.label}`"
+        :aria-expanded="actionsCategoryId === tab.categoryId"
+        :aria-controls="actionsCategoryId === tab.categoryId ? `${panelId}-actions` : undefined"
+        :tabindex="modelValue === tab.categoryId ? 0 : -1"
+        @click.stop="emit('manage', tab.categoryId)"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="16"
+          height="16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="m16 4 4 4-12 12-5 1 1-5Z" />
+          <path d="m14 6 4 4" />
+        </svg>
+      </button>
+    </div>
   </div>
 </template>

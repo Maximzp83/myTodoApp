@@ -16,6 +16,7 @@ export const useTodoStore = defineStore('todos', () => {
   const categories = ref<TodoCategory[]>([])
   const loading = ref(false)
   const saving = ref(false)
+  const togglingIds = ref(new Set<string>())
   const loaded = ref(false)
   const error = ref('')
   const userId = ref<string | null>(null)
@@ -29,6 +30,7 @@ export const useTodoStore = defineStore('todos', () => {
       categories.value.length === 0,
   )
   let accountVersion = 0
+  const pendingToggles = new Map<string, Promise<void>>()
 
   function setAccount(id: string | null) {
     if (userId.value === id) return
@@ -39,6 +41,8 @@ export const useTodoStore = defineStore('todos', () => {
     loaded.value = false
     loading.value = false
     saving.value = false
+    togglingIds.value = new Set()
+    pendingToggles.clear()
     error.value = ''
   }
 
@@ -49,6 +53,9 @@ export const useTodoStore = defineStore('todos', () => {
     loading.value = true
     error.value = ''
     try {
+      // Fetch only after pending toggles settle, so a stale read cannot undo them.
+      if (pendingToggles.size > 0) await Promise.all(pendingToggles.values())
+      if (version !== accountVersion) return
       const data = await todoApi.fetchAccountData(id)
       if (version !== accountVersion) return
       todos.value = data.todos
@@ -72,6 +79,9 @@ export const useTodoStore = defineStore('todos', () => {
     saving.value = true
     error.value = ''
     try {
+      // For example, Clear completed must see confirmed completion on the server.
+      if (pendingToggles.size > 0) await Promise.all(pendingToggles.values())
+      if (version !== accountVersion) return null
       const result = await operation(id)
       if (version !== accountVersion) return null
       commit(result)
@@ -177,12 +187,35 @@ export const useTodoStore = defineStore('todos', () => {
   }
 
   async function toggleTodo(id: string) {
+    if (!userId.value || !loaded.value || busy.value || togglingIds.value.has(id)) return
     const todo = todos.value.find((item) => item.id === id)
     if (!todo) return
-    await mutate(
-      (owner) => todoApi.updateTodo(owner, id, { completed: !todo.completed }),
-      replaceTodo,
-    )
+    const owner = userId.value
+    const version = accountVersion
+    const previousCompleted = todo.completed
+    togglingIds.value.add(id)
+    error.value = ''
+    replaceTodo({ ...todo, completed: !previousCompleted })
+
+    const pending = (async () => {
+      try {
+        const updated = await todoApi.updateTodo(owner, id, { completed: !previousCompleted })
+        if (version !== accountVersion) return
+        replaceTodo(updated)
+      } catch (cause) {
+        if (version !== accountVersion) return
+        const current = todos.value.find((item) => item.id === id)
+        if (current) replaceTodo({ ...current, completed: previousCompleted })
+        error.value = errorMessage(cause, 'Could not save your changes. Please try again.')
+      } finally {
+        if (version === accountVersion) {
+          togglingIds.value.delete(id)
+          pendingToggles.delete(id)
+        }
+      }
+    })()
+    pendingToggles.set(id, pending)
+    await pending
   }
 
   async function moveTodo(id: string, categoryId: string | null) {
@@ -220,6 +253,7 @@ export const useTodoStore = defineStore('todos', () => {
     categories,
     loading,
     saving,
+    togglingIds,
     loaded,
     busy,
     error,

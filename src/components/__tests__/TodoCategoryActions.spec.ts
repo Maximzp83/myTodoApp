@@ -45,6 +45,13 @@ describe('TodoCategoryActions', () => {
     await flushPromises()
     expect(wrapper.find('input').exists()).toBe(false)
     expect(wrapper.emitted('rename')).toBeUndefined()
+    expect(wrapper.emitted('close')).toBeUndefined()
+  })
+
+  it('requests closing the actions when Escape is pressed in view mode', async () => {
+    const wrapper = mountActions()
+    await wrapper.get('.category-actions').trigger('keydown', { key: 'Escape' })
+    expect(wrapper.emitted('close')).toEqual([[]])
   })
 
   it('requires explicit delete confirmation and allows cancellation', async () => {

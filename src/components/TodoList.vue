@@ -6,6 +6,7 @@ import type { Todo } from '@/types/todo'
 defineProps<{
   todos: Todo[]
   categories: TodoCategory[]
+  togglingIds: ReadonlySet<string>
 }>()
 
 const emit = defineEmits<{
@@ -22,6 +23,7 @@ const emit = defineEmits<{
       :key="todo.id"
       :todo="todo"
       :categories="categories"
+      :toggling="togglingIds.has(todo.id)"
       @toggle="emit('toggle', $event)"
       @remove="emit('remove', $event)"
       @move="(id, categoryId) => emit('move', id, categoryId)"

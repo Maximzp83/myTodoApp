@@ -16,6 +16,11 @@ async function addTodo(page: Page, title: string) {
   await expect(page.getByRole('checkbox', { name: title, exact: true })).toBeVisible()
 }
 
+async function openCategoryActions(page: Page, name: string) {
+  await page.getByRole('tab', { name, exact: true }).hover()
+  await page.getByRole('button', { name: `Manage category ${name}`, exact: true }).click()
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
   await page.evaluate(() => localStorage.clear())
@@ -112,6 +117,7 @@ test('renames and deletes a category while preserving its tasks', async ({ page 
   await addTodo(page, 'Personal task')
   await page.getByRole('tab', { name: 'Work', exact: true }).click()
 
+  await openCategoryActions(page, 'Work')
   await page.getByRole('button', { name: 'Edit category', exact: true }).click()
   const categoryName = page.getByLabel('Category name', { exact: true })
   await expect(categoryName).toBeFocused()
@@ -141,6 +147,7 @@ test('renames and deletes a category while preserving its tasks', async ({ page 
   await expect(page.getByRole('checkbox', { name: 'Active work task' })).toBeVisible()
   await expect(page.getByLabel('Category for Finished work task')).toHaveValue(/.+/)
 
+  await openCategoryActions(page, 'Projects')
   await page.getByRole('button', { name: 'Delete category', exact: true }).click()
   await expect(
     page.getByText('Delete “Projects”? Its tasks will be kept in Uncategorized.', { exact: true }),
@@ -194,6 +201,7 @@ test('keeps rename drafts and category tasks after failed saves', async ({
 }, testInfo) => {
   await createCategory(page, 'Work')
   await addTodo(page, 'Keep this task')
+  await openCategoryActions(page, 'Work')
   await page.getByRole('button', { name: 'Edit category', exact: true }).click()
   cloud.failWrites = true
   await page.getByLabel('Category name', { exact: true }).fill('Projects')
@@ -245,6 +253,7 @@ test('refreshes renamed or removed categories from another browser', async ({
     await secondPage.goto(page.url())
     await login(secondPage)
     await secondPage.getByRole('tab', { name: 'Work', exact: true }).click()
+    await openCategoryActions(secondPage, 'Work')
     await secondPage.getByRole('button', { name: 'Edit category', exact: true }).click()
     await secondPage.getByLabel('Category name', { exact: true }).fill('Projects')
     await secondPage.getByRole('button', { name: 'Save category', exact: true }).click()
@@ -299,6 +308,83 @@ test('keeps legacy tasks available in the uncategorized tab', async ({ page }) =
   await page.reload()
   await page.getByRole('tab', { name: 'Work', exact: true }).click()
   await expect(page.getByRole('checkbox', { name: 'Task saved before categories' })).toBeChecked()
+})
+
+test('reveals category actions through the hover pencil, keyboard, and touch', async ({
+  page,
+  browser,
+  cloud,
+}, testInfo) => {
+  await createCategory(page, 'Work')
+  await createCategory(page, 'Personal')
+  const workTab = page.getByRole('tab', { name: 'Work', exact: true })
+  const pencil = page.getByRole('button', { name: 'Manage category Work', exact: true })
+  await expect(page.getByRole('button', { name: 'Edit category', exact: true })).toHaveCount(0)
+  await expect(pencil).toHaveCSS('opacity', '0')
+  await workTab.hover()
+  await expect(pencil).toHaveCSS('opacity', '1')
+  await expect(page.getByRole('button', { name: 'Edit category', exact: true })).toHaveCount(0)
+  await pencil.click()
+  await expect(workTab).toHaveAttribute('aria-selected', 'true')
+  await expect(pencil).toHaveAttribute('aria-expanded', 'true')
+  const edit = page.getByRole('button', { name: 'Edit category', exact: true })
+  await expect(edit).toBeFocused()
+  await expect(page.getByRole('button', { name: 'Delete category', exact: true })).toBeVisible()
+  await page.screenshot({
+    path: testInfo.outputPath('category-pencil-desktop-light.png'),
+    fullPage: true,
+    animations: 'disabled',
+  })
+  await edit.press('Escape')
+  await expect(edit).toHaveCount(0)
+  await expect(pencil).toBeFocused()
+  await expect(pencil).toHaveAttribute('aria-expanded', 'false')
+  await pencil.press('Enter')
+  await expect(edit).toBeFocused()
+  await pencil.click()
+  await expect(edit).toHaveCount(0)
+  await openCategoryActions(page, 'Personal')
+  await expect(page.getByRole('tab', { name: 'Personal', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  await page.getByRole('tab', { name: 'All tasks', exact: true }).click()
+  await expect(edit).toHaveCount(0)
+  await expect(
+    page.getByRole('button', { name: 'Manage category All tasks', exact: true }),
+  ).toHaveCount(0)
+
+  const touchContext = await browser.newContext({
+    viewport: { width: 320, height: 812 },
+    isMobile: true,
+    hasTouch: true,
+  })
+  try {
+    await cloud.install(touchContext)
+    const touchPage = await touchContext.newPage()
+    await touchPage.goto(page.url())
+    await login(touchPage)
+    const touchPencil = touchPage.getByRole('button', { name: 'Manage category Work', exact: true })
+    await expect(touchPencil).toHaveCSS('opacity', '1')
+    await touchPencil.tap()
+    await expect(
+      touchPage.getByRole('button', { name: 'Edit category', exact: true }),
+    ).toBeVisible()
+    await expect(
+      touchPage.getByRole('button', { name: 'Delete category', exact: true }),
+    ).toBeVisible()
+    await touchPage.getByRole('button', { name: 'Enable dark theme' }).tap()
+    expect(
+      await touchPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true)
+    await touchPage.screenshot({
+      path: testInfo.outputPath('category-pencil-mobile-dark.png'),
+      fullPage: true,
+      animations: 'disabled',
+    })
+  } finally {
+    await touchContext.close()
+  }
 })
 
 test('supports keyboard tabs and mobile layouts in both themes', async ({ page }, testInfo) => {

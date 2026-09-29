@@ -26,6 +26,19 @@ function matching(row: RecordValue, params: URLSearchParams) {
 
 // Test-only intercepted API. No request reaches a real Supabase project.
 export class TestCloud {
+  private toggleGates = new Map<string, Promise<void>>()
+
+  holdTodoToggle(title: string) {
+    const todo = this.todos.find((item) => item.title === title)
+    if (!todo) throw new Error('Expected task to delay')
+    const { promise, resolve } = Promise.withResolvers<void>()
+    this.toggleGates.set(todo.id, promise)
+    return () => {
+      this.toggleGates.delete(todo.id)
+      resolve()
+    }
+  }
+
   confirm(email: string) {
     const user = this.users.find((item) => item.email === email)
     if (!user) throw new Error('Expected registered user')
@@ -112,6 +125,14 @@ export class TestCloud {
       if (!actor) {
         await respond({ message: 'Unauthorized' }, 401)
         return
+      }
+      if (
+        url.pathname === '/rest/v1/todos' &&
+        method === 'PATCH' &&
+        typeof body.completed === 'boolean'
+      ) {
+        const id = url.searchParams.get('id')?.replace(/^eq\./, '') ?? ''
+        await this.toggleGates.get(id)
       }
       if (method !== 'GET' && this.failWrites) {
         await respond({ message: 'Simulated save failure' }, 500)

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { computed, nextTick, ref, useId } from 'vue'
+import { computed, nextTick, ref, useId, watch } from 'vue'
 import TodoCategoryForm from '@/components/TodoCategoryForm.vue'
 import TodoCategoryTabs from '@/components/TodoCategoryTabs.vue'
 import TodoCategoryActions from '@/components/TodoCategoryActions.vue'
@@ -25,6 +25,7 @@ const categoryPanelId = useId()
 const categoryResetVersion = ref(0)
 const todoResetVersion = ref(0)
 const categoryActionResetVersion = ref(0)
+const actionsCategoryId = ref<string | null>(null)
 const selectedCategory = computed(() =>
   categories.value.find((category) => category.id === categoryId.value),
 )
@@ -33,6 +34,31 @@ const categoryPanelLabel = computed(
     categories.value.find((category) => category.id === categoryId.value)?.name ??
     (categoryId.value === undefined ? 'All tasks' : 'Uncategorized'),
 )
+
+watch(categoryId, (id) => {
+  if (id !== actionsCategoryId.value) actionsCategoryId.value = null
+})
+
+async function closeCategoryActions() {
+  const id = actionsCategoryId.value
+  actionsCategoryId.value = null
+  await nextTick()
+  if (id) document.getElementById(`${categoryPanelId}-manage-${id}`)?.focus()
+}
+
+async function manageCategory(id: string) {
+  if (actionsCategoryId.value === id) {
+    await closeCategoryActions()
+    return
+  }
+  categoryId.value = id
+  actionsCategoryId.value = id
+  await nextTick()
+  document
+    .getElementById(`${categoryPanelId}-actions`)
+    ?.querySelector<HTMLButtonElement>('button')
+    ?.focus()
+}
 
 async function createCategory(name: string) {
   const category = await todoStore.addCategory(name)
@@ -89,8 +115,8 @@ async function removeCategory(id: string) {
   >
     {{ authError || todoStore.error }}
   </p>
-  <p v-if="todoStore.loading" class="account-message" role="status">Loading your tasks…</p>
-  <p v-else-if="todoStore.saving" class="account-message" role="status">Saving changes…</p>
+  <!-- <p v-if="todoStore.loading" class="account-message" role="status">Loading your tasks…</p> -->
+  <!-- <p v-else-if="todoStore.saving" class="account-message" role="status">Saving changes…</p> -->
   <div v-if="todoStore.canImport" class="browser-import">
     <p>This browser has tasks from the earlier version. Import them into this account?</p>
     <button
@@ -114,9 +140,16 @@ async function removeCategory(id: string) {
         :reset-version="categoryResetVersion"
         @create="createCategory"
       />
-      <TodoCategoryTabs v-model="categoryId" :categories="categories" :panel-id="categoryPanelId" />
+      <TodoCategoryTabs
+        v-model="categoryId"
+        :categories="categories"
+        :panel-id="categoryPanelId"
+        :actions-category-id="actionsCategoryId"
+        @manage="manageCategory"
+      />
       <TodoCategoryActions
-        v-if="selectedCategory"
+        v-if="selectedCategory && actionsCategoryId === selectedCategory.id"
+        :id="`${categoryPanelId}-actions`"
         :key="selectedCategory.id"
         :category="selectedCategory"
         :categories="categories"
@@ -124,6 +157,7 @@ async function removeCategory(id: string) {
         :reset-version="categoryActionResetVersion"
         @rename="renameCategory"
         @remove="removeCategory"
+        @close="closeCategoryActions"
       />
     </div>
     <div :id="categoryPanelId" role="tabpanel" :aria-label="categoryPanelLabel" tabindex="0">
@@ -144,6 +178,7 @@ async function removeCategory(id: string) {
       <TodoList
         :todos="filteredTodos"
         :categories="categories"
+        :toggling-ids="todoStore.togglingIds"
         @toggle="todoStore.toggleTodo"
         @remove="todoStore.removeTodo"
         @move="todoStore.moveTodo"

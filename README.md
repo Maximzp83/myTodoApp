@@ -5,8 +5,9 @@
 The app uses Supabase Auth (email/password) and PostgreSQL for tasks and categories.
 Each account owns its records; database row-level security enforces this ownership.
 Open the same website and sign in to the same account on another device to load the
-same data. Click **Refresh**, reload the page, or return focus to the window to fetch
-changes made on another device. This version does not use live Realtime subscriptions.
+same data. Click **Refresh** or reload the page to fetch changes made on another
+device. Returning focus to the window does not refresh data. This version does not
+use live Realtime subscriptions.
 
 ### Create the Supabase project
 
@@ -49,7 +50,10 @@ transactional and does not delete local originals.
 
 ### Category editing and deletion
 
-Select a custom category tab to use **Edit category** or **Delete category**.
+Hover over a custom category tab and click its pencil button to reveal **Edit category**
+and **Delete category**. The pencil also appears on keyboard focus and stays visible on
+touchscreens. Clicking it again or pressing Escape closes the actions; switching tabs
+also closes them.
 Renaming keeps its tasks and rejects duplicate names. Deletion requires confirmation;
 tasks retain their completion, priority, and owner and move to **Uncategorized**.
 

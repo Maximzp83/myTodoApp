@@ -102,3 +102,58 @@ test('keeps drafts and confirmed data after a failed write', async ({ page, clou
   await expect(page.getByRole('alert')).toHaveText('Simulated save failure')
   await expect(page.getByRole('checkbox', { name: 'Keep my draft' })).not.toBeChecked()
 })
+
+test('toggles immediately without locking the workspace and rolls back failed toggles', async ({
+  page,
+  cloud,
+}) => {
+  await page.goto('/')
+  await login(page)
+  await page.getByLabel('New Todo').fill('First task')
+  await page.getByRole('button', { name: 'Add Todo', exact: true }).click()
+  const first = page.getByRole('checkbox', { name: 'First task', exact: true })
+  await expect(first).toBeVisible()
+  await page.getByLabel('New Todo').fill('Second task')
+  await page.getByRole('button', { name: 'Add Todo', exact: true }).click()
+  const second = page.getByRole('checkbox', { name: 'Second task', exact: true })
+  await expect(second).toBeVisible()
+  const releaseFirst = cloud.holdTodoToggle('First task')
+  try {
+    await first.click()
+    await expect(first).toBeChecked()
+    await expect(first).toBeDisabled()
+    await expect(second).toBeEnabled()
+    await expect(page.getByLabel('New Todo')).toBeEnabled()
+    await expect(page.getByLabel('New category', { exact: true })).toBeEnabled()
+    await expect(page.getByLabel('Category for First task')).toBeEnabled()
+    await expect(page.getByRole('button', { name: 'Delete First task', exact: true })).toBeEnabled()
+    await expect(page.getByRole('button', { name: 'Refresh', exact: true })).toBeEnabled()
+    await second.click()
+    await expect(second).toBeChecked()
+    await expect(second).toBeEnabled()
+    await expect(first).toBeDisabled()
+    await page.getByLabel('New Todo').fill('Draft during toggle')
+    await expect(page.getByLabel('New Todo')).toHaveValue('Draft during toggle')
+  } finally {
+    releaseFirst()
+  }
+  await expect(first).toBeEnabled()
+  await expect(first).toBeChecked()
+
+  const releaseSecond = cloud.holdTodoToggle('Second task')
+  cloud.failWrites = true
+  try {
+    await second.click()
+    await expect(second).not.toBeChecked()
+    await expect(second).toBeDisabled()
+    await expect(first).toBeEnabled()
+    await expect(page.getByLabel('New Todo')).toBeEnabled()
+  } finally {
+    releaseSecond()
+  }
+  await expect(page.getByRole('alert')).toHaveText('Simulated save failure')
+  await expect(second).toBeChecked()
+  await expect(second).toBeEnabled()
+  await expect(first).toBeChecked()
+  await expect(page.getByLabel('New Todo')).toHaveValue('Draft during toggle')
+})

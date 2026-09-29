@@ -1,4 +1,4 @@
-import { onMounted, onUnmounted, watch, type Ref } from 'vue'
+import { watch, type Ref } from 'vue'
 import { useTodoStore } from '@/stores/todo'
 import type { AccountUser } from '@/types/auth'
 
@@ -12,11 +12,4 @@ export function useAccountTodos(user: Ref<AccountUser | null>) {
     },
     { immediate: true },
   )
-
-  function refreshWhenVisible() {
-    if (document.visibilityState === 'visible') void todoStore.refresh()
-  }
-
-  onMounted(() => window.addEventListener('focus', refreshWhenVisible))
-  onUnmounted(() => window.removeEventListener('focus', refreshWhenVisible))
 }

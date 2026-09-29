@@ -6,6 +6,7 @@ import { prioritiesList, type Todo } from '@/types/todo'
 const props = defineProps<{
   todo: Todo
   categories: TodoCategory[]
+  toggling: boolean
 }>()
 
 const emit = defineEmits<{
@@ -25,13 +26,6 @@ function changeCategory(event: Event) {
     event.target.value = props.todo.categoryId ?? ''
   }
 }
-
-function toggleCompleted(event: Event) {
-  if (event.target instanceof HTMLInputElement) {
-    emit('toggle', props.todo.id)
-    event.target.checked = props.todo.completed
-  }
-}
 </script>
 
 <template>
@@ -41,7 +35,9 @@ function toggleCompleted(event: Event) {
       class="todo-item__checkbox"
       type="checkbox"
       :checked="todo.completed"
-      @change="toggleCompleted"
+      :disabled="toggling"
+      :aria-busy="toggling"
+      @change="emit('toggle', todo.id)"
     />
     <div class="todo-item__content">
       <label class="todo-item__title" :for="`todo-${todo.id}`">{{ todo.title }}</label>
