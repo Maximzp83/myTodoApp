@@ -1,4 +1,4 @@
--- Run after the migration in Supabase SQL Editor. All test records are rolled back.
+-- Run after both migrations in Supabase SQL Editor. All test records are rolled back.
 begin;
 insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-000000000001', 'rls-test-a@example.invalid'),
@@ -24,6 +24,12 @@ begin
   delete from public.todos where id = '20000000-0000-4000-8000-000000000002';
   get diagnostics changed = row_count;
   if changed <> 0 then raise exception 'RLS failed: another account can be deleted.'; end if;
+  update public.categories set name = 'Forbidden' where id = '10000000-0000-4000-8000-000000000002';
+  get diagnostics changed = row_count;
+  if changed <> 0 then raise exception 'RLS failed: another category can be renamed.'; end if;
+  delete from public.categories where id = '10000000-0000-4000-8000-000000000002';
+  get diagnostics changed = row_count;
+  if changed <> 0 then raise exception 'RLS failed: another category can be deleted.'; end if;
   begin
     insert into public.todos (user_id, title) values ('00000000-0000-4000-8000-000000000002', 'Forbidden');
     raise exception 'RLS failed: another owner can be supplied.';
@@ -36,6 +42,24 @@ begin
   end;
   update public.todos set completed = true;
   if not (select completed from public.todos) then raise exception 'Own task update failed.'; end if;
+  update public.categories set name = 'Renamed A';
+  if (select name from public.categories) <> 'Renamed A' then raise exception 'Own category rename failed.'; end if;
+  delete from public.categories;
+  get diagnostics changed = row_count;
+  if changed <> 1 then raise exception 'Own category delete failed.'; end if;
+  if (select count(*) from public.todos) <> 1 or not exists (
+    select 1 from public.todos
+    where category_id is null and user_id = auth.uid() and title = 'Test A task' and completed
+  ) then raise exception 'Category deletion did not preserve the task and its owner.'; end if;
+end;
+$$;
+
+reset role;
+do $$
+begin
+  if not exists (select 1 from public.categories where id = '10000000-0000-4000-8000-000000000002' and name = 'Test B')
+    or not exists (select 1 from public.todos where id = '20000000-0000-4000-8000-000000000002' and category_id = '10000000-0000-4000-8000-000000000002' and not completed)
+  then raise exception 'Category operations changed another account.'; end if;
 end;
 $$;
 

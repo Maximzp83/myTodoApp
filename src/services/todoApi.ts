@@ -73,6 +73,35 @@ export async function createCategory(userId: string, name: string): Promise<Todo
   return { id: data.id, name: data.name }
 }
 
+export async function renameCategory(
+  userId: string,
+  id: string,
+  name: string,
+): Promise<TodoCategory> {
+  const { data, error } = await getSupabase()
+    .from('categories')
+    .update({ name })
+    .eq('user_id', userId)
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return { id: data.id, name: data.name }
+}
+
+export async function deleteCategory(userId: string, id: string) {
+  // The database clears category_id in the same transaction, preserving each task's owner.
+  const { data, error } = await getSupabase()
+    .from('categories')
+    .delete()
+    .eq('user_id', userId)
+    .eq('id', id)
+    .select('id')
+    .single()
+  if (error) throw error
+  return data.id
+}
+
 export async function createTodo(
   userId: string,
   title: string,

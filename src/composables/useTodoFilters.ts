@@ -1,15 +1,28 @@
-import { computed, ref, type Ref } from 'vue'
-import type { TodoCategoryFilter } from '@/types/category'
+import { computed, ref, watch, type Ref } from 'vue'
+import type { TodoCategory, TodoCategoryFilter } from '@/types/category'
 import { TodoFilter, type Todo, type TodoPriorityId } from '@/types/todo'
 
 function assertNever(value: never): never {
   throw new Error(`Unsupported Todo filter: ${String(value)}`)
 }
 
-export function useTodoFilters(todos: Ref<Todo[]>) {
+export function useTodoFilters(todos: Ref<Todo[]>, categories?: Readonly<Ref<TodoCategory[]>>) {
   const filter = ref<TodoFilter>(TodoFilter.All)
   const priorityId = ref<TodoPriorityId | null>(null)
   const categoryId = ref<TodoCategoryFilter>(undefined)
+  if (categories) {
+    watch(
+      () =>
+        typeof categoryId.value === 'string' &&
+        !categories.value.some((category) => category.id === categoryId.value),
+      (missing) => {
+        if (!missing) return
+        categoryId.value = null
+        filter.value = TodoFilter.All
+        priorityId.value = null
+      },
+    )
+  }
   const categoryTodos = computed(() =>
     categoryId.value === undefined
       ? todos.value

@@ -339,6 +339,32 @@ h1 {
   padding: 0.3rem;
 }
 
+.category-actions {
+  max-width: 30rem;
+  margin-top: 1rem;
+}
+
+.category-actions__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.category-actions form .category-actions__buttons {
+  margin-top: 0.75rem;
+}
+
+.category-actions__confirmation p {
+  margin: 0 0 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.category-actions .button--danger {
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+}
+
 .category-tab {
   flex: none;
   max-width: 16rem;

@@ -127,6 +127,42 @@ export const useTodoStore = defineStore('todos', () => {
     return result !== null
   }
 
+  async function renameCategory(id: string, name: string) {
+    const category = categories.value.find((item) => item.id === id)
+    const trimmedName = name.trim()
+    if (
+      !category ||
+      trimmedName.length === 0 ||
+      trimmedName.length > MAX_CATEGORY_NAME_LENGTH ||
+      trimmedName === category.name ||
+      categories.value.some(
+        (item) => item.id !== id && item.name.toLowerCase() === trimmedName.toLowerCase(),
+      )
+    )
+      return false
+    const result = await mutate(
+      (owner) => todoApi.renameCategory(owner, id, trimmedName),
+      (updated) => {
+        categories.value = categories.value.map((item) => (item.id === updated.id ? updated : item))
+      },
+    )
+    return result !== null
+  }
+
+  async function removeCategory(id: string) {
+    if (!categories.value.some((category) => category.id === id)) return false
+    const result = await mutate(
+      (owner) => todoApi.deleteCategory(owner, id),
+      (deletedId) => {
+        categories.value = categories.value.filter((category) => category.id !== deletedId)
+        todos.value = todos.value.map((todo) =>
+          todo.categoryId === deletedId ? { ...todo, categoryId: null } : todo,
+        )
+      },
+    )
+    return result !== null
+  }
+
   function removeIds(ids: string[]) {
     todos.value = todos.value.filter((todo) => !ids.includes(todo.id))
   }
@@ -191,6 +227,8 @@ export const useTodoStore = defineStore('todos', () => {
     setAccount,
     refresh,
     addCategory,
+    renameCategory,
+    removeCategory,
     addTodo,
     removeTodo,
     toggleTodo,

@@ -105,6 +105,81 @@ describe('cloud Todo store', () => {
     expect(store.busy).toBe(false)
   })
 
+  it('renames a category using the server result without changing its tasks', async () => {
+    const task = { ...activeTodo, categoryId: work.id }
+    const store = await readyStore([task])
+    vi.mocked(api.renameCategory).mockResolvedValue({ ...work, name: 'Projects' })
+    expect(await store.renameCategory(work.id, '  Projects  ')).toBe(true)
+    expect(api.renameCategory).toHaveBeenCalledExactlyOnceWith('account-a', work.id, 'Projects')
+    expect(store.categories).toEqual([{ ...work, name: 'Projects' }])
+    expect(store.todos).toEqual([task])
+  })
+
+  it("rejects invalid renames but allows changing the current name's casing", async () => {
+    const personal = { id: 'personal', name: 'Personal' }
+    const store = await readyStore([], [work, personal])
+    expect(await store.renameCategory('missing', 'Projects')).toBe(false)
+    expect(await store.renameCategory(work.id, ' ')).toBe(false)
+    expect(await store.renameCategory(work.id, 'a'.repeat(51))).toBe(false)
+    expect(await store.renameCategory(work.id, ' Work ')).toBe(false)
+    expect(await store.renameCategory(work.id, '  pErSoNaL  ')).toBe(false)
+    expect(api.renameCategory).not.toHaveBeenCalled()
+    vi.mocked(api.renameCategory).mockResolvedValue({ ...work, name: 'WORK' })
+    expect(await store.renameCategory(work.id, 'WORK')).toBe(true)
+  })
+
+  it('removes a confirmed category and preserves its tasks in Uncategorized', async () => {
+    const personal = { id: 'personal', name: 'Personal' }
+    const workTask = { ...activeTodo, categoryId: work.id, priorityId: TodoPriorityId.Critical }
+    const doneWorkTask = { ...completedTodo, categoryId: work.id }
+    const otherTask = { ...activeTodo, id: 'other-task', categoryId: personal.id }
+    const store = await readyStore([workTask, doneWorkTask, otherTask], [work, personal])
+    vi.mocked(api.deleteCategory).mockResolvedValue(work.id)
+    expect(await store.removeCategory(work.id)).toBe(true)
+    expect(api.deleteCategory).toHaveBeenCalledExactlyOnceWith('account-a', work.id)
+    expect(store.categories).toEqual([personal])
+    expect(store.todos).toEqual([
+      { ...workTask, categoryId: null },
+      { ...doneWorkTask, categoryId: null },
+      otherTask,
+    ])
+    expect(await store.removeCategory('missing')).toBe(false)
+    expect(api.deleteCategory).toHaveBeenCalledTimes(1)
+  })
+
+  it('preserves confirmed categories and tasks after a failed rename or delete', async () => {
+    const task = { ...activeTodo, categoryId: work.id }
+    const store = await readyStore([task])
+    vi.mocked(api.renameCategory).mockRejectedValue(new Error('Rename failed'))
+    expect(await store.renameCategory(work.id, 'Projects')).toBe(false)
+    expect(store.error).toBe('Rename failed')
+    vi.mocked(api.deleteCategory).mockRejectedValue(new Error('Delete failed'))
+    expect(await store.removeCategory(work.id)).toBe(false)
+    expect(store.error).toBe('Delete failed')
+    expect(store.categories).toEqual([work])
+    expect(store.todos).toEqual([task])
+    expect(store.busy).toBe(false)
+  })
+
+  it('ignores a late category deletion after the account changes', async () => {
+    const store = await readyStore([{ ...activeTodo, categoryId: work.id }])
+    let resolveDelete: (id: string) => void = () => {
+      throw new Error('Deletion was not started')
+    }
+    vi.mocked(api.deleteCategory).mockReturnValue(
+      new Promise((resolve) => {
+        resolveDelete = resolve
+      }),
+    )
+    const deleting = store.removeCategory(work.id)
+    store.setAccount('account-b')
+    resolveDelete(work.id)
+    expect(await deleting).toBe(false)
+    expect(store.categories).toEqual([])
+    expect(store.todos).toEqual([])
+    expect(store.saving).toBe(false)
+  })
+
   it('toggles and moves a task using confirmed server responses', async () => {
     const store = await readyStore([activeTodo])
     const toggled = { ...activeTodo, completed: true }

@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import { describe, expect, it } from 'vitest'
 import { useTodoFilters } from '@/composables/useTodoFilters'
 import { TodoFilter, TodoPriorityId, type Todo } from '@/types/todo'
@@ -107,5 +107,34 @@ describe('useTodoFilters', () => {
     task.categoryId = null
 
     expect(filteredTodos.value).toEqual([])
+  })
+
+  it('shows all Uncategorized tasks when the selected category disappears', async () => {
+    const categories = ref([{ id: 'work', name: 'Work' }])
+    const todoState = ref(todos.map((todo) => ({ ...todo })))
+    const { categoryId, filter, priorityId, filteredTodos } = useTodoFilters(todoState, categories)
+    categoryId.value = 'work'
+    filter.value = TodoFilter.Active
+    priorityId.value = TodoPriorityId.Normal
+    categories.value = []
+    todoState.value = todoState.value.map((todo) => ({ ...todo, categoryId: null }))
+    await nextTick()
+    expect(categoryId.value).toBeNull()
+    expect(filter.value).toBe(TodoFilter.All)
+    expect(priorityId.value).toBeNull()
+    expect(filteredTodos.value).toEqual(todoState.value)
+  })
+
+  it('preserves the selected category and filters when its name changes', async () => {
+    const categories = ref([{ id: 'work', name: 'Work' }])
+    const { categoryId, filter, priorityId } = useTodoFilters(ref(todos), categories)
+    categoryId.value = 'work'
+    filter.value = TodoFilter.Completed
+    priorityId.value = TodoPriorityId.High
+    categories.value = [{ id: 'work', name: 'Projects' }]
+    await nextTick()
+    expect(categoryId.value).toBe('work')
+    expect(filter.value).toBe(TodoFilter.Completed)
+    expect(priorityId.value).toBe(TodoPriorityId.High)
   })
 })

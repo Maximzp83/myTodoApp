@@ -14,6 +14,8 @@ changes made on another device. This version does not use live Realtime subscrip
 2. In **SQL Editor**, run `supabase/migrations/202609290001_accounts_and_todos.sql`
    once against the new project. It creates both tables, owner-only access policies,
    and the atomic browser-data import function.
+   Then run `supabase/migrations/202609290002_category_deletion.sql` to preserve
+   tasks when a category is deleted.
 3. Enable email/password signups and email confirmation in the Auth configuration.
    Configure the password minimum to at least 8 characters. For reliable public
    registration, [configure your own SMTP provider](https://supabase.com/docs/guides/auth/auth-smtp); the default email service is
@@ -45,6 +47,17 @@ empty, an **Import browser tasks** button uploads the previous tasks and categor
 from this browser after explicit confirmation by clicking it. The import is
 transactional and does not delete local originals.
 
+### Category editing and deletion
+
+Select a custom category tab to use **Edit category** or **Delete category**.
+Renaming keeps its tasks and rejects duplicate names. Deletion requires confirmation;
+tasks retain their completion, priority, and owner and move to **Uncategorized**.
+
+For an existing Supabase project, run only the contents of
+`supabase/migrations/202609290002_category_deletion.sql` in **SQL Editor → New query → Run**
+before deploying this update. Do not rerun the initial table-creation migration.
+The new migration changes the foreign key without deleting existing data.
+
 ### Deploy to GitHub Pages
 
 1. In the repository, open **Settings → Secrets and variables → Actions → Variables**.
@@ -68,6 +81,9 @@ failed writes, and shared server data across separate browser contexts. They do 
 prove that a remote project's schema or RLS policies have been applied.
 Run `supabase/tests/ownership.sql` in the project's SQL Editor to check database
 ownership policies; it uses disposable records in a transaction and rolls them back.
+It also checks category rename/delete isolation and task preservation. Both migrations
+must be applied first. `supabase/tests/local.sql` is a separate test runner for an empty,
+disposable PostgreSQL 15+ database; do not run that bootstrap in your Supabase project.
 Finally check real email confirmation and the same account in two devices against
 the configured project before treating deployment as complete.
 

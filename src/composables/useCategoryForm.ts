@@ -1,7 +1,10 @@
 import { computed, ref, type Ref } from 'vue'
 import { MAX_CATEGORY_NAME_LENGTH, type TodoCategory } from '@/types/category'
 
-export function useCategoryForm(categories: Readonly<Ref<TodoCategory[]>>) {
+export function useCategoryForm(
+  categories: Readonly<Ref<TodoCategory[]>>,
+  editingId?: Readonly<Ref<string>>,
+) {
   const name = ref('')
   const trimmedName = computed(() => name.value.trim())
   const error = computed(() => {
@@ -11,7 +14,9 @@ export function useCategoryForm(categories: Readonly<Ref<TodoCategory[]>>) {
 
     if (
       categories.value.some(
-        (category) => category.name.toLowerCase() === trimmedName.value.toLowerCase(),
+        (category) =>
+          category.id !== editingId?.value &&
+          category.name.toLowerCase() === trimmedName.value.toLowerCase(),
       )
     ) {
       return 'A category with this name already exists.'

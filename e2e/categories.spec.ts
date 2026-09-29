@@ -101,6 +101,178 @@ test('clears completed tasks only in the selected category', async ({ page }) =>
   await expect(page.getByRole('checkbox', { name: 'Completed personal task' })).toBeChecked()
 })
 
+test('renames and deletes a category while preserving its tasks', async ({ page }, testInfo) => {
+  await createCategory(page, 'Work')
+  await page.getByLabel('Priority', { exact: true }).selectOption({ label: 'Critical' })
+  await addTodo(page, 'Finished work task')
+  await page.getByRole('checkbox', { name: 'Finished work task' }).click()
+  await expect(page.getByRole('checkbox', { name: 'Finished work task' })).toBeChecked()
+  await addTodo(page, 'Active work task')
+  await createCategory(page, 'Personal')
+  await addTodo(page, 'Personal task')
+  await page.getByRole('tab', { name: 'Work', exact: true }).click()
+
+  await page.getByRole('button', { name: 'Edit category', exact: true }).click()
+  const categoryName = page.getByLabel('Category name', { exact: true })
+  await expect(categoryName).toBeFocused()
+  await expect(categoryName).toHaveValue('Work')
+  await expect(page.getByRole('button', { name: 'Save category' })).toBeDisabled()
+  await categoryName.fill('  pErSoNaL  ')
+  await expect(page.getByRole('status')).toHaveText('A category with this name already exists.')
+  await expect(page.getByRole('button', { name: 'Save category' })).toBeDisabled()
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Edit category' })).toBeFocused()
+  await expect(page.getByRole('tab', { name: 'Work', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+
+  await page.getByRole('button', { name: 'Edit category', exact: true }).click()
+  await categoryName.fill('  Projects  ')
+  await page.getByRole('button', { name: 'Save category', exact: true }).click()
+  await expect(page.getByRole('tab', { name: 'Projects', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  await expect(page.getByRole('button', { name: 'Edit category' })).toBeFocused()
+  await expect(page.getByRole('checkbox', { name: 'Finished work task' })).toBeChecked()
+  await page.reload()
+  await page.getByRole('tab', { name: 'Projects', exact: true }).click()
+  await expect(page.getByRole('checkbox', { name: 'Active work task' })).toBeVisible()
+  await expect(page.getByLabel('Category for Finished work task')).toHaveValue(/.+/)
+
+  await page.getByRole('button', { name: 'Delete category', exact: true }).click()
+  await expect(
+    page.getByText('Delete “Projects”? Its tasks will be kept in Uncategorized.', { exact: true }),
+  ).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused()
+  await page.getByRole('button', { name: 'Cancel', exact: true }).press('Escape')
+  await expect(page.getByRole('button', { name: 'Delete category', exact: true })).toBeFocused()
+  await expect(page.getByRole('tab', { name: 'Projects', exact: true })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Active', exact: true }).click()
+  await page.getByRole('button', { name: 'Delete category', exact: true }).click()
+  await page.setViewportSize({ width: 320, height: 812 })
+  await page.getByRole('button', { name: 'Enable dark theme' }).click()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  )
+  await page.screenshot({
+    path: testInfo.outputPath('category-delete-mobile-dark.png'),
+    fullPage: true,
+    animations: 'disabled',
+  })
+  await page.getByRole('button', { name: 'Confirm delete category', exact: true }).click()
+  await expect(page.getByRole('tab', { name: 'Projects', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('tab', { name: 'Uncategorized', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  await expect(page.getByRole('tabpanel')).toBeFocused()
+  await expect(page.getByRole('checkbox', { name: 'Finished work task' })).toBeChecked()
+  await expect(page.getByRole('checkbox', { name: 'Active work task' })).toBeVisible()
+  await expect(
+    page
+      .getByRole('listitem')
+      .filter({ hasText: 'Finished work task' })
+      .getByText('Critical', { exact: true }),
+  ).toBeVisible()
+  await expect(page.getByLabel('Category for Finished work task')).toHaveValue('')
+  await expect(page.getByRole('button', { name: 'Edit category' })).toHaveCount(0)
+  await expect(page.getByRole('checkbox', { name: 'Personal task' })).toHaveCount(0)
+  await page.reload()
+  await expect(page.getByRole('tab', { name: 'Projects', exact: true })).toHaveCount(0)
+  await page.getByRole('tab', { name: 'Uncategorized', exact: true }).click()
+  await expect(page.getByRole('checkbox', { name: 'Finished work task' })).toBeChecked()
+  await page.getByRole('tab', { name: 'Personal', exact: true }).click()
+  await expect(page.getByRole('checkbox', { name: 'Personal task' })).toBeVisible()
+})
+
+test('keeps rename drafts and category tasks after failed saves', async ({
+  page,
+  cloud,
+}, testInfo) => {
+  await createCategory(page, 'Work')
+  await addTodo(page, 'Keep this task')
+  await page.getByRole('button', { name: 'Edit category', exact: true }).click()
+  cloud.failWrites = true
+  await page.getByLabel('Category name', { exact: true }).fill('Projects')
+  await page.getByRole('button', { name: 'Save category', exact: true }).click()
+  await expect(page.getByRole('alert')).toHaveText('Simulated save failure')
+  await expect(page.getByLabel('Category name', { exact: true })).toHaveValue('Projects')
+  await expect(page.getByRole('tab', { name: 'Work', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  await expect(page.getByRole('checkbox', { name: 'Keep this task' })).toBeVisible()
+  await page.setViewportSize({ width: 375, height: 812 })
+  await page.screenshot({
+    path: testInfo.outputPath('category-edit-mobile-light.png'),
+    fullPage: true,
+    animations: 'disabled',
+  })
+  cloud.failWrites = false
+  await page.getByRole('button', { name: 'Save category', exact: true }).click()
+  await expect(page.getByRole('tab', { name: 'Projects', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  await page.getByRole('button', { name: 'Delete category', exact: true }).click()
+  cloud.failWrites = true
+  await page.getByRole('button', { name: 'Confirm delete category', exact: true }).click()
+  await expect(page.getByRole('alert')).toHaveText('Simulated save failure')
+  await expect(page.getByRole('button', { name: 'Confirm delete category' })).toBeEnabled()
+  await expect(page.getByRole('tab', { name: 'Projects', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  await expect(page.getByRole('checkbox', { name: 'Keep this task' })).toBeVisible()
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Delete category', exact: true })).toBeVisible()
+})
+
+test('refreshes renamed or removed categories from another browser', async ({
+  page,
+  browser,
+  cloud,
+}) => {
+  await createCategory(page, 'Work')
+  await addTodo(page, 'Shared category task')
+  const secondContext = await browser.newContext()
+  try {
+    await cloud.install(secondContext)
+    const secondPage = await secondContext.newPage()
+    await secondPage.goto(page.url())
+    await login(secondPage)
+    await secondPage.getByRole('tab', { name: 'Work', exact: true }).click()
+    await secondPage.getByRole('button', { name: 'Edit category', exact: true }).click()
+    await secondPage.getByLabel('Category name', { exact: true }).fill('Projects')
+    await secondPage.getByRole('button', { name: 'Save category', exact: true }).click()
+    await expect(secondPage.getByRole('tab', { name: 'Projects', exact: true })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    await page.getByRole('button', { name: 'Refresh', exact: true }).click()
+    await expect(page.getByRole('tab', { name: 'Projects', exact: true })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    await expect(page.getByRole('checkbox', { name: 'Shared category task' })).toBeVisible()
+    await secondPage.getByRole('button', { name: 'Delete category', exact: true }).click()
+    await secondPage.getByRole('button', { name: 'Confirm delete category', exact: true }).click()
+    await expect(secondPage.getByRole('tab', { name: 'Projects', exact: true })).toHaveCount(0)
+    await page.getByRole('button', { name: 'Refresh', exact: true }).click()
+    await expect(page.getByRole('tab', { name: 'Uncategorized', exact: true })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    await expect(page.getByRole('checkbox', { name: 'Shared category task' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Delete category', exact: true })).toHaveCount(0)
+  } finally {
+    await secondContext.close()
+  }
+})
+
 test('keeps legacy tasks available in the uncategorized tab', async ({ page }) => {
   await page.evaluate(() => {
     localStorage.setItem(

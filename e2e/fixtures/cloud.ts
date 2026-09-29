@@ -158,12 +158,35 @@ export class TestCloud {
           await respond(single ? category : [category])
           return
         }
-        await respond(
-          this.categories.filter(
-            (category) =>
-              category.user_id === actor.id && matching({ ...category }, url.searchParams),
-          ),
+        const selected = this.categories.filter(
+          (category) =>
+            category.user_id === actor.id && matching({ ...category }, url.searchParams),
         )
+        if ((method === 'PATCH' || method === 'DELETE') && single && selected.length !== 1) {
+          await respond({ message: 'Category is no longer available' }, 406)
+          return
+        }
+        if (method === 'PATCH') {
+          const duplicate = this.categories.some(
+            (category) =>
+              category.user_id === actor.id &&
+              !selected.includes(category) &&
+              category.name.toLowerCase() === String(body.name).toLowerCase(),
+          )
+          if (duplicate) {
+            await respond({ message: 'A category with this name already exists.' }, 409)
+            return
+          }
+          for (const category of selected) category.name = String(body.name)
+        }
+        if (method === 'DELETE') {
+          this.categories = this.categories.filter((category) => !selected.includes(category))
+          const deletedIds = new Set(selected.map((category) => category.id))
+          for (const todo of this.todos)
+            if (todo.user_id === actor.id && todo.category_id && deletedIds.has(todo.category_id))
+              todo.category_id = null
+        }
+        await respond(single ? selected[0] : selected)
         return
       }
       if (url.pathname === '/rest/v1/todos') {

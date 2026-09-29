@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { computed, ref, useId } from 'vue'
+import { computed, nextTick, ref, useId } from 'vue'
 import TodoCategoryForm from '@/components/TodoCategoryForm.vue'
 import TodoCategoryTabs from '@/components/TodoCategoryTabs.vue'
+import TodoCategoryActions from '@/components/TodoCategoryActions.vue'
 import TodoFilters from '@/components/TodoFilters.vue'
 import TodoForm from '@/components/TodoForm.vue'
 import TodoList from '@/components/TodoList.vue'
@@ -16,11 +17,17 @@ defineProps<{ user: AccountUser; accountBusy: boolean; authError: string }>()
 const emit = defineEmits<{ logout: [] }>()
 const todoStore = useTodoStore()
 const { todos, categories } = storeToRefs(todoStore)
-const { filter, priorityId, categoryId, filteredTodos, activeCount, hasCompleted } =
-  useTodoFilters(todos)
+const { filter, priorityId, categoryId, filteredTodos, activeCount, hasCompleted } = useTodoFilters(
+  todos,
+  categories,
+)
 const categoryPanelId = useId()
 const categoryResetVersion = ref(0)
 const todoResetVersion = ref(0)
+const categoryActionResetVersion = ref(0)
+const selectedCategory = computed(() =>
+  categories.value.find((category) => category.id === categoryId.value),
+)
 const categoryPanelLabel = computed(
   () =>
     categories.value.find((category) => category.id === categoryId.value)?.name ??
@@ -39,6 +46,17 @@ async function createCategory(name: string) {
 
 async function addTodo(title: string, priority: TodoPriorityId, category: string | null) {
   if (await todoStore.addTodo(title, priority, category)) todoResetVersion.value += 1
+}
+
+async function renameCategory(id: string, name: string) {
+  if (await todoStore.renameCategory(id, name)) categoryActionResetVersion.value += 1
+}
+
+async function removeCategory(id: string) {
+  if (await todoStore.removeCategory(id)) {
+    await nextTick()
+    document.getElementById(categoryPanelId)?.focus()
+  }
 }
 </script>
 
@@ -97,6 +115,16 @@ async function addTodo(title: string, priority: TodoPriorityId, category: string
         @create="createCategory"
       />
       <TodoCategoryTabs v-model="categoryId" :categories="categories" :panel-id="categoryPanelId" />
+      <TodoCategoryActions
+        v-if="selectedCategory"
+        :key="selectedCategory.id"
+        :category="selectedCategory"
+        :categories="categories"
+        :busy="todoStore.busy || accountBusy"
+        :reset-version="categoryActionResetVersion"
+        @rename="renameCategory"
+        @remove="removeCategory"
+      />
     </div>
     <div :id="categoryPanelId" role="tabpanel" :aria-label="categoryPanelLabel" tabindex="0">
       <TodoForm
