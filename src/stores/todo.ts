@@ -7,7 +7,7 @@ import {
   type TodoCategory,
   type TodoCategoryFilter,
 } from '@/types/category'
-import { isTodoPriorityId, TodoPriorityId, type Todo } from '@/types/todo'
+import { isTodoPriorityId, MAX_TODO_NOTE_LENGTH, TodoPriorityId, type Todo } from '@/types/todo'
 
 const MAX_TITLE_LENGTH = 120
 
@@ -224,6 +224,18 @@ export const useTodoStore = defineStore('todos', () => {
     await mutate((owner) => todoApi.updateTodo(owner, id, { category_id: categoryId }), replaceTodo)
   }
 
+  async function updateTodoNote(id: string, note: string) {
+    const todo = todos.value.find((item) => item.id === id)
+    const nextNote = note.trim().length > 0 ? note : null
+    if (!todo || (nextNote?.length ?? 0) > MAX_TODO_NOTE_LENGTH) return false
+    if (todo.note === nextNote) return true
+    const result = await mutate(
+      (owner) => todoApi.updateTodo(owner, id, { note: nextNote }),
+      replaceTodo,
+    )
+    return result !== null
+  }
+
   async function clearCompleted(categoryId: TodoCategoryFilter = undefined) {
     if (
       !todos.value.some(
@@ -267,6 +279,7 @@ export const useTodoStore = defineStore('todos', () => {
     removeTodo,
     toggleTodo,
     moveTodo,
+    updateTodoNote,
     clearCompleted,
     importLocalData,
   }

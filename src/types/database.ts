@@ -15,6 +15,14 @@ export type TodoRow = {
   created_at: string
   priority_id: number
   category_id: string | null
+  note: string | null
+}
+
+export type NoteRow = {
+  id: string
+  user_id: string
+  body: string
+  created_at: string
 }
 
 export interface Database {
@@ -37,7 +45,13 @@ export interface Database {
           priority_id?: number
           category_id?: string | null
         }
-        Update: { completed?: boolean; category_id?: string | null }
+        Update: { completed?: boolean; category_id?: string | null; note?: string | null }
+        Relationships: []
+      }
+      notes: {
+        Row: NoteRow
+        Insert: { id?: string; user_id: string; body?: string; created_at?: string }
+        Update: { body?: string }
         Relationships: []
       }
     }

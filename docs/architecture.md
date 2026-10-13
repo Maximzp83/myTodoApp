@@ -26,9 +26,16 @@ They should not directly access browser persistence.
 
 ## Store
 
-The Todo Pinia store owns the Todo collection.
+The Todo Pinia store owns the Todo collection, including task notes.
 
-It exposes actions for modifying Todo state.
+The Notes Pinia store owns standalone notes.
+
+Both expose actions for modifying their state.
+
+## Routing
+
+`src/router` maps `#/` to the task workspace and `#/notes` to the Notes page.
+Hash history is used because GitHub Pages has no fallback for unknown paths.
 
 ## Services
 

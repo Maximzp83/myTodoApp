@@ -30,7 +30,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -620,6 +621,225 @@ h1 {
   text-align: center;
 }
 
+.app-nav {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0 2.5rem 1.5rem;
+}
+
+.app-nav__link {
+  border-radius: 999px;
+  padding: 0.45rem 0.95rem;
+  color: #475569;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.app-nav__link:hover {
+  color: #3730a3;
+  background: #e0e7ff;
+}
+
+.app-nav__link[aria-current='page'] {
+  color: #fff;
+  background: #4f46e5;
+}
+
+.app-nav__link:focus-visible,
+.todo-item__note:focus-visible,
+.note-list__item:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
+.todo-item__note {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border: 0;
+  border-radius: 0.5rem;
+  padding: 0;
+  color: #4f46e5;
+  background: #eef2ff;
+}
+
+.todo-item__note:hover {
+  color: #fff;
+  background: #4f46e5;
+}
+
+/* Tasks without a note show the button only on hover or focus. */
+.todo-item__note--empty {
+  color: #94a3b8;
+  background: transparent;
+  opacity: 0;
+}
+
+.todo-item:hover .todo-item__note--empty,
+.todo-item:focus-within .todo-item__note--empty {
+  opacity: 1;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .todo-item__note--empty {
+    opacity: 1;
+  }
+}
+
+.note-textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  padding: 0.8rem 1rem;
+  color: #0f172a;
+  background: #fff;
+  line-height: 1.5;
+  outline: none;
+  resize: vertical;
+}
+
+.note-textarea:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 0.2rem rgb(99 102 241 / 16%);
+}
+
+.note-dialog {
+  width: min(100% - 2rem, 36rem);
+  border: 1px solid rgb(148 163 184 / 30%);
+  border-radius: 1.25rem;
+  padding: 1.5rem;
+  color: inherit;
+  background: #fff;
+}
+
+.note-dialog::backdrop {
+  background: rgb(15 23 42 / 45%);
+}
+
+.note-dialog__form {
+  display: grid;
+  gap: 1rem;
+}
+
+.note-dialog__title {
+  margin: 0;
+  font-size: 1.15rem;
+  overflow-wrap: anywhere;
+}
+
+.note-dialog__error {
+  margin: 0;
+  color: #b91c1c;
+}
+
+.note-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.note-dialog__actions .button--danger {
+  margin-right: auto;
+}
+
+.notes {
+  display: grid;
+  grid-template-columns: minmax(12rem, 18rem) 1fr;
+  gap: 1.5rem;
+  padding: 0 2.5rem 2.5rem;
+}
+
+.notes__sidebar {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+}
+
+.notes__placeholder {
+  align-self: center;
+}
+
+.note-list {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.note-list .empty-state,
+.notes__sidebar .empty-state {
+  padding: 1.5rem 0;
+}
+
+.note-list__item {
+  display: grid;
+  width: 100%;
+  gap: 0.2rem;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.8rem;
+  color: #1e293b;
+  background: transparent;
+  text-align: left;
+}
+
+.note-list__item:hover {
+  background: #f1f5f9;
+}
+
+.note-list__item[aria-current='true'] {
+  border-color: #c7d2fe;
+  background: #eef2ff;
+}
+
+.note-list__preview {
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-list__date {
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.note-editor {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+}
+
+.note-editor__text {
+  min-height: 22rem;
+}
+
+.note-editor__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.note-editor__status {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.note-editor__status[data-changed='true'] {
+  color: #b45309;
+}
+
+.note-editor__actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -758,6 +978,67 @@ h1 {
   color: #64748b;
 }
 
+:root[data-theme='dark'] .app-nav__link {
+  color: #cbd5e1;
+}
+
+:root[data-theme='dark'] .app-nav__link:hover {
+  color: #c7d2fe;
+  background: #312e81;
+}
+
+:root[data-theme='dark'] .app-nav__link[aria-current='page'] {
+  color: #fff;
+  background: #4f46e5;
+}
+
+:root[data-theme='dark'] .todo-item__note {
+  color: #c7d2fe;
+  background: #312e81;
+}
+
+:root[data-theme='dark'] .todo-item__note--empty {
+  color: #94a3b8;
+  background: transparent;
+}
+
+:root[data-theme='dark'] .note-textarea {
+  border-color: #475569;
+  color: #e2e8f0;
+  background: #0f172a;
+}
+
+:root[data-theme='dark'] .note-dialog {
+  border-color: #334155;
+  background: #1e293b;
+}
+
+:root[data-theme='dark'] .note-dialog__error {
+  color: #fda4af;
+}
+
+:root[data-theme='dark'] .note-editor__status[data-changed='true'] {
+  color: #fcd34d;
+}
+
+:root[data-theme='dark'] .note-list__item {
+  color: #e2e8f0;
+}
+
+:root[data-theme='dark'] .note-list__item:hover {
+  background: #1e293b;
+}
+
+:root[data-theme='dark'] .note-list__item[aria-current='true'] {
+  border-color: #3730a3;
+  background: #312e81;
+}
+
+:root[data-theme='dark'] .note-list__date,
+:root[data-theme='dark'] .note-editor__status {
+  color: #94a3b8;
+}
+
 @media (max-width: 640px) {
   .app-shell {
     padding: 1.5rem 0.75rem;
@@ -792,8 +1073,18 @@ h1 {
   }
 
   .account-message,
-  .browser-import {
+  .browser-import,
+  .app-nav {
     padding-inline: 1.25rem;
+  }
+
+  .notes {
+    grid-template-columns: 1fr;
+    padding: 0 1.25rem 1.5rem;
+  }
+
+  .note-editor__text {
+    min-height: 14rem;
   }
 
   .category-form__controls {

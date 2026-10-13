@@ -13,6 +13,7 @@ const emit = defineEmits<{
   toggle: [id: string]
   remove: [id: string]
   move: [id: string, categoryId: string | null]
+  openNote: [id: string]
 }>()
 
 const priorityLabel = computed(
@@ -46,6 +47,24 @@ function changeCategory(event: Event) {
       </span>
     </div>
     <div class="todo-item__actions">
+      <button
+        class="todo-item__note"
+        :class="{ 'todo-item__note--empty': !todo.note }"
+        type="button"
+        :aria-label="todo.note ? `Note for ${todo.title}` : `Add note to ${todo.title}`"
+        :title="todo.note ? 'Show note' : 'Add note'"
+        @click="emit('openNote', todo.id)"
+      >
+        <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
+          <path
+            d="M5 2.5h7l3.5 3.5v11.5h-10.5z M12 2.5v3.5h3.5 M7.5 10h5 M7.5 13h5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
       <label class="sr-only" :for="`category-${todo.id}`">Category for {{ todo.title }}</label>
       <select
         :id="`category-${todo.id}`"

@@ -12,4 +12,5 @@ grant usage on schema public, auth to anon, authenticated;
 
 \ir ../migrations/202609290001_accounts_and_todos.sql
 \ir ../migrations/202609290002_category_deletion.sql
+\ir ../migrations/202610120001_notes.sql
 \ir ownership.sql

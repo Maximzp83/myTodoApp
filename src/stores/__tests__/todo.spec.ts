@@ -13,6 +13,7 @@ const activeTodo: Todo = {
   createdAt: '2026-08-14T12:00:00.000Z',
   priorityId: TodoPriorityId.Normal,
   categoryId: null,
+  note: null,
 }
 const completedTodo: Todo = {
   ...activeTodo,
@@ -316,6 +317,28 @@ describe('cloud Todo store', () => {
     expect(api.updateTodo).toHaveBeenLastCalledWith('account-a', activeTodo.id, {
       category_id: work.id,
     })
+  })
+
+  it('saves a task note, clears a blank note, and skips unchanged notes', async () => {
+    const store = await readyStore([activeTodo])
+    vi.mocked(api.updateTodo).mockResolvedValueOnce({ ...activeTodo, note: 'Call Anna\nat 5' })
+    expect(await store.updateTodoNote(activeTodo.id, 'Call Anna\nat 5')).toBe(true)
+    expect(api.updateTodo).toHaveBeenLastCalledWith('account-a', activeTodo.id, {
+      note: 'Call Anna\nat 5',
+    })
+    expect(store.todos[0]?.note).toBe('Call Anna\nat 5')
+
+    expect(await store.updateTodoNote(activeTodo.id, 'Call Anna\nat 5')).toBe(true)
+    expect(api.updateTodo).toHaveBeenCalledTimes(1)
+
+    vi.mocked(api.updateTodo).mockResolvedValueOnce(activeTodo)
+    expect(await store.updateTodoNote(activeTodo.id, '  \n ')).toBe(true)
+    expect(api.updateTodo).toHaveBeenLastCalledWith('account-a', activeTodo.id, { note: null })
+    expect(store.todos[0]?.note).toBeNull()
+
+    expect(await store.updateTodoNote(activeTodo.id, 'x'.repeat(2001))).toBe(false)
+    expect(await store.updateTodoNote('missing', 'Note')).toBe(false)
+    expect(api.updateTodo).toHaveBeenCalledTimes(2)
   })
 
   it('removes only ids confirmed deleted by the server', async () => {

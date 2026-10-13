@@ -1,5 +1,4 @@
-import type { PostgrestError } from '@supabase/supabase-js'
-import { getSupabase } from '@/services/supabase'
+import { fetchAllRows, getSupabase } from '@/services/supabase'
 import { loadTodos } from '@/services/todoStorage'
 import { loadCategories } from '@/services/categoryStorage'
 import type { TodoCategory, TodoCategoryFilter } from '@/types/category'
@@ -15,30 +14,14 @@ function toTodo(row: TodoRow): Todo {
     createdAt: row.created_at,
     priorityId: row.priority_id,
     categoryId: row.category_id,
-  }
-}
-
-async function allRows<T>(
-  fetchPage: (
-    from: number,
-    to: number,
-  ) => PromiseLike<{ data: T[] | null; error: PostgrestError | null }>,
-): Promise<T[]> {
-  const rows: T[] = []
-  const pageSize = 1000
-  for (let from = 0; ; from += pageSize) {
-    const { data, error } = await fetchPage(from, from + pageSize - 1)
-    if (error) throw error
-    if (!data) throw new Error('Could not load your data.')
-    rows.push(...data)
-    if (data.length < pageSize) return rows
+    note: row.note,
   }
 }
 
 export async function fetchAccountData(userId: string) {
   const client = getSupabase()
   const [categoryRows, todoRows] = await Promise.all([
-    allRows((from, to) =>
+    fetchAllRows((from, to) =>
       client
         .from('categories')
         .select('*')
@@ -47,7 +30,7 @@ export async function fetchAccountData(userId: string) {
         .order('id')
         .range(from, to),
     ),
-    allRows((from, to) =>
+    fetchAllRows((from, to) =>
       client
         .from('todos')
         .select('*')
@@ -120,7 +103,7 @@ export async function createTodo(
 export async function updateTodo(
   userId: string,
   id: string,
-  changes: { completed?: boolean; category_id?: string | null },
+  changes: { completed?: boolean; category_id?: string | null; note?: string | null },
 ) {
   const { data, error } = await getSupabase()
     .from('todos')

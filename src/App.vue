@@ -2,8 +2,8 @@
 import { onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import AuthPanel from '@/components/AuthPanel.vue'
-import TodoWorkspace from '@/components/TodoWorkspace.vue'
 import { useTheme } from '@/composables/useTheme'
+import { useAccountNotes } from '@/composables/useAccountNotes'
 import { useAccountTodos } from '@/composables/useAccountTodos'
 import { useAuthStore } from '@/stores/auth'
 
@@ -11,6 +11,7 @@ const authStore = useAuthStore()
 const { user } = storeToRefs(authStore)
 const { theme, toggleTheme } = useTheme()
 useAccountTodos(user)
+useAccountNotes(user)
 onMounted(() => {
   void authStore.initialize()
 })
@@ -36,14 +37,22 @@ onMounted(() => {
       <p v-if="!authStore.initialized" class="account-message" role="status">
         Restoring your session…
       </p>
-      <TodoWorkspace
-        v-else-if="user"
-        :key="user.id"
-        :user="user"
-        :account-busy="authStore.busy"
-        :auth-error="authStore.error"
-        @logout="authStore.logout"
-      />
+      <template v-else-if="user">
+        <nav class="app-nav" aria-label="Sections">
+          <RouterLink class="app-nav__link" to="/">Tasks</RouterLink>
+          <RouterLink class="app-nav__link" to="/notes">Notes</RouterLink>
+        </nav>
+        <RouterView v-slot="{ Component }">
+          <component
+            :is="Component"
+            :key="user.id"
+            :user="user"
+            :account-busy="authStore.busy"
+            :auth-error="authStore.error"
+            @logout="authStore.logout"
+          />
+        </RouterView>
+      </template>
       <AuthPanel
         v-else
         :busy="authStore.busy"

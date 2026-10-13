@@ -11,6 +11,7 @@ const todos: Todo[] = [
     createdAt: '2026-08-14T12:00:00.000Z',
     priorityId: TodoPriorityId.Normal,
     categoryId: 'work',
+    note: null,
   },
   {
     id: 'completed-todo',
@@ -19,6 +20,7 @@ const todos: Todo[] = [
     createdAt: '2026-08-14T13:00:00.000Z',
     priorityId: TodoPriorityId.High,
     categoryId: null,
+    note: null,
   },
 ]
 

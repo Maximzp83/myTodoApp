@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { test as base, expect, type BrowserContext, type Page } from '@playwright/test'
-import type { CategoryRow, TodoRow } from '../../src/types/database.js'
+import type { CategoryRow, NoteRow, TodoRow } from '../../src/types/database.js'
 
 type TestUser = { id: string; email: string; password: string; confirmed: boolean }
 type RecordValue = Record<string, unknown>
@@ -49,6 +49,7 @@ export class TestCloud {
   ]
   todos: TodoRow[] = []
   categories: CategoryRow[] = []
+  notes: NoteRow[] = []
   failWrites = false
 
   async install(context: BrowserContext) {
@@ -229,11 +230,42 @@ export class TestCloud {
             if (typeof body.completed === 'boolean') todo.completed = body.completed
             if ('category_id' in body)
               todo.category_id = body.category_id === null ? null : String(body.category_id)
+            if ('note' in body) todo.note = body.note === null ? null : String(body.note)
           }
           await respond(single ? selected[0] : selected)
           return
         }
         if (method === 'DELETE') this.todos = this.todos.filter((todo) => !selected.includes(todo))
+        const offset = Number(url.searchParams.get('offset') ?? 0)
+        const limit = Number(url.searchParams.get('limit') ?? 1000)
+        await respond(selected.slice(offset, offset + limit))
+        return
+      }
+      if (url.pathname === '/rest/v1/notes') {
+        if (method === 'POST') {
+          if (body.user_id !== actor.id) {
+            await respond({ message: 'Forbidden' }, 403)
+            return
+          }
+          const note = {
+            id: randomUUID(),
+            user_id: actor.id,
+            body: typeof body.body === 'string' ? body.body : '',
+            created_at: new Date().toISOString(),
+          }
+          this.notes.push(note)
+          await respond(single ? note : [note])
+          return
+        }
+        const selected = this.notes
+          .filter((note) => note.user_id === actor.id && matching({ ...note }, url.searchParams))
+          .sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id))
+        if (method === 'PATCH') {
+          for (const note of selected) if (typeof body.body === 'string') note.body = body.body
+          await respond(single ? selected[0] : selected)
+          return
+        }
+        if (method === 'DELETE') this.notes = this.notes.filter((note) => !selected.includes(note))
         const offset = Number(url.searchParams.get('offset') ?? 0)
         const limit = Number(url.searchParams.get('limit') ?? 1000)
         await respond(selected.slice(offset, offset + limit))
@@ -279,6 +311,7 @@ export class TestCloud {
         typeof value.created_at === 'string' ? value.created_at : new Date().toISOString(),
       priority_id: Number(value.priority_id ?? 2),
       category_id: typeof value.category_id === 'string' ? value.category_id : null,
+      note: typeof value.note === 'string' ? value.note : null,
     }
   }
 }

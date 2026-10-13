@@ -1,3 +1,5 @@
+export const MAX_TODO_NOTE_LENGTH = 2000
+
 export enum TodoPriorityId {
   Low = 1,
   Normal = 2,
@@ -28,6 +30,7 @@ export interface Todo {
   createdAt: string
   priorityId: TodoPriorityId
   categoryId: string | null
+  note: string | null
 }
 
 export enum TodoFilter {

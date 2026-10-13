@@ -36,6 +36,7 @@ describe('todoStorage', () => {
         createdAt: '2026-08-14T12:00:00.000Z',
         priorityId: TodoPriorityId.High,
         categoryId: 'work',
+        note: null,
       },
     ]
 
@@ -65,6 +66,7 @@ describe('todoStorage', () => {
         createdAt: '2026-08-14T12:00:00.000Z',
         priorityId: TodoPriorityId.Normal,
         categoryId: null,
+        note: null,
       },
     ])
   })
@@ -94,6 +96,7 @@ describe('todoStorage', () => {
       createdAt: '2026-08-14T12:00:00.000Z',
       priorityId: TodoPriorityId.Normal,
       categoryId: null,
+      note: null,
     }
     localStorage.setItem('todos', JSON.stringify([validTodo, { id: 42 }]))
 
@@ -138,6 +141,7 @@ describe('todoStorage', () => {
         createdAt: '2026-08-14T12:00:00.000Z',
         priorityId: TodoPriorityId.Critical,
         categoryId: null,
+        note: null,
       },
     ])
   })

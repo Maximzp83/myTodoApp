@@ -1,4 +1,4 @@
--- Run after both migrations in Supabase SQL Editor. All test records are rolled back.
+-- Run after all migrations in Supabase SQL Editor. All test records are rolled back.
 begin;
 insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-000000000001', 'rls-test-a@example.invalid'),
@@ -9,15 +9,34 @@ insert into public.categories (id, user_id, name) values
 insert into public.todos (id, user_id, title, category_id) values
   ('20000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000001', 'Test A task', '10000000-0000-4000-8000-000000000001'),
   ('20000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000002', 'Test B task', '10000000-0000-4000-8000-000000000002');
+insert into public.notes (id, user_id, body) values
+  ('30000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000001', 'Note A'),
+  ('30000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000002', 'Note B');
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000001', true);
 do $$
 declare changed integer;
 begin
-  if (select count(*) from public.todos) <> 1 or (select count(*) from public.categories) <> 1 then
+  if (select count(*) from public.todos) <> 1 or (select count(*) from public.categories) <> 1
+    or (select count(*) from public.notes) <> 1 then
     raise exception 'RLS failed: another account is visible.';
   end if;
+  update public.notes set body = 'Forbidden' where id = '30000000-0000-4000-8000-000000000002';
+  get diagnostics changed = row_count;
+  if changed <> 0 then raise exception 'RLS failed: another note can be updated.'; end if;
+  delete from public.notes where id = '30000000-0000-4000-8000-000000000002';
+  get diagnostics changed = row_count;
+  if changed <> 0 then raise exception 'RLS failed: another note can be deleted.'; end if;
+  begin
+    insert into public.notes (user_id) values ('00000000-0000-4000-8000-000000000002');
+    raise exception 'RLS failed: another note owner can be supplied.';
+  exception when insufficient_privilege then null;
+  end;
+  update public.notes set body = 'Edited A';
+  if (select body from public.notes) <> 'Edited A' then raise exception 'Own note update failed.'; end if;
+  update public.todos set note = 'Task note';
+  if (select note from public.todos) <> 'Task note' then raise exception 'Own task note update failed.'; end if;
   update public.todos set completed = true where id = '20000000-0000-4000-8000-000000000002';
   get diagnostics changed = row_count;
   if changed <> 0 then raise exception 'RLS failed: another account can be updated.'; end if;
@@ -59,6 +78,7 @@ do $$
 begin
   if not exists (select 1 from public.categories where id = '10000000-0000-4000-8000-000000000002' and name = 'Test B')
     or not exists (select 1 from public.todos where id = '20000000-0000-4000-8000-000000000002' and category_id = '10000000-0000-4000-8000-000000000002' and not completed)
+    or not exists (select 1 from public.notes where id = '30000000-0000-4000-8000-000000000002' and body = 'Note B')
   then raise exception 'Category operations changed another account.'; end if;
 end;
 $$;
@@ -74,6 +94,11 @@ begin
   begin
     perform 1 from public.categories;
     raise exception 'Unauthenticated access to categories is allowed.';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform 1 from public.notes;
+    raise exception 'Unauthenticated access to notes is allowed.';
   exception when insufficient_privilege then null;
   end;
 end;

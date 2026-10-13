@@ -63,6 +63,7 @@ function parseTodo(value: unknown): Todo | null {
       'categoryId' in value && typeof value.categoryId === 'string' && value.categoryId.length > 0
         ? value.categoryId
         : null,
+    note: null,
   }
 }
 

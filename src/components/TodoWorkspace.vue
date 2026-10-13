@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { computed, nextTick, ref, useId, watch } from 'vue'
+import AccountToolbar from '@/components/AccountToolbar.vue'
 import TodoCategoryForm from '@/components/TodoCategoryForm.vue'
 import TodoCategoryTabs from '@/components/TodoCategoryTabs.vue'
 import TodoCategoryActions from '@/components/TodoCategoryActions.vue'
 import TodoFilters from '@/components/TodoFilters.vue'
 import TodoForm from '@/components/TodoForm.vue'
 import TodoList from '@/components/TodoList.vue'
+import TodoNoteDialog from '@/components/TodoNoteDialog.vue'
 import TodoSummary from '@/components/TodoSummary.vue'
 import { useTodoFilters } from '@/composables/useTodoFilters'
 import { useTodoStore } from '@/stores/todo'
@@ -26,6 +28,8 @@ const categoryResetVersion = ref(0)
 const todoResetVersion = ref(0)
 const categoryActionResetVersion = ref(0)
 const actionsCategoryId = ref<string | null>(null)
+const noteTodoId = ref<string | null>(null)
+const noteTodo = computed(() => todos.value.find((todo) => todo.id === noteTodoId.value))
 const selectedCategory = computed(() =>
   categories.value.find((category) => category.id === categoryId.value),
 )
@@ -74,6 +78,10 @@ async function addTodo(title: string, priority: TodoPriorityId, category: string
   if (await todoStore.addTodo(title, priority, category)) todoResetVersion.value += 1
 }
 
+async function saveTodoNote(id: string, note: string) {
+  if (await todoStore.updateTodoNote(id, note)) noteTodoId.value = null
+}
+
 async function renameCategory(id: string, name: string) {
   if (await todoStore.renameCategory(id, name)) categoryActionResetVersion.value += 1
 }
@@ -87,27 +95,16 @@ async function removeCategory(id: string) {
 </script>
 
 <template>
-  <div class="account-toolbar">
-    <p class="account-toolbar__email">{{ user.email }}</p>
-    <div class="account-toolbar__actions">
-      <button
-        class="button button--quiet"
-        type="button"
-        :disabled="todoStore.busy || accountBusy"
-        @click="todoStore.refresh"
-      >
-        Refresh
-      </button>
-      <button
-        class="button button--secondary"
-        type="button"
-        :disabled="accountBusy"
-        @click="emit('logout')"
-      >
-        {{ accountBusy ? 'Signing out…' : 'Sign out' }}
-      </button>
-    </div>
-  </div>
+  <AccountToolbar :email="user.email" :busy="accountBusy" @logout="emit('logout')">
+    <button
+      class="button button--quiet"
+      type="button"
+      :disabled="todoStore.busy || accountBusy"
+      @click="todoStore.refresh"
+    >
+      Refresh
+    </button>
+  </AccountToolbar>
   <p
     v-if="authError || todoStore.error"
     class="account-message account-message--error"
@@ -182,7 +179,17 @@ async function removeCategory(id: string) {
         @toggle="todoStore.toggleTodo"
         @remove="todoStore.removeTodo"
         @move="todoStore.moveTodo"
+        @open-note="noteTodoId = $event"
       />
     </div>
   </fieldset>
+  <TodoNoteDialog
+    v-if="noteTodo"
+    :key="noteTodo.id"
+    :todo="noteTodo"
+    :busy="todoStore.busy || accountBusy"
+    :error="todoStore.error"
+    @save="saveTodoNote"
+    @close="noteTodoId = null"
+  />
 </template>

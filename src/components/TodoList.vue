@@ -13,6 +13,7 @@ const emit = defineEmits<{
   toggle: [id: string]
   remove: [id: string]
   move: [id: string, categoryId: string | null]
+  openNote: [id: string]
 }>()
 </script>
 
@@ -27,6 +28,7 @@ const emit = defineEmits<{
       @toggle="emit('toggle', $event)"
       @remove="emit('remove', $event)"
       @move="(id, categoryId) => emit('move', id, categoryId)"
+      @open-note="emit('openNote', $event)"
     />
   </ul>
   <p v-else class="empty-state">No Todos to show.</p>
