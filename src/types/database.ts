@@ -18,10 +18,19 @@ export type TodoRow = {
   note: string | null
 }
 
+export type NoteTabRow = {
+  id: string
+  user_id: string
+  name: string
+  created_at: string
+}
+
 export type NoteRow = {
   id: string
   user_id: string
+  title: string
   body: string
+  tab_id: string | null
   created_at: string
 }
 
@@ -50,8 +59,21 @@ export interface Database {
       }
       notes: {
         Row: NoteRow
-        Insert: { id?: string; user_id: string; body?: string; created_at?: string }
-        Update: { body?: string }
+        Insert: {
+          id?: string
+          user_id: string
+          title?: string
+          body?: string
+          tab_id?: string | null
+          created_at?: string
+        }
+        Update: { title?: string; body?: string }
+        Relationships: []
+      }
+      note_tabs: {
+        Row: NoteTabRow
+        Insert: { id?: string; user_id: string; name: string; created_at?: string }
+        Update: { name?: string }
         Relationships: []
       }
     }

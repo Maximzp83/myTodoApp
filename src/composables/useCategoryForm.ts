@@ -1,25 +1,42 @@
 import { computed, ref, type Ref } from 'vue'
-import { MAX_CATEGORY_NAME_LENGTH, type TodoCategory } from '@/types/category'
+import { MAX_CATEGORY_NAME_LENGTH } from '@/types/category'
+
+interface NamedItem {
+  id: string
+  name: string
+}
+
+interface CategoryFormOptions {
+  maxLength?: number
+  duplicateMessage?: string
+  // Names taken by built-in items that are not part of the list, such as the General note tab.
+  reservedNames?: readonly string[]
+}
 
 export function useCategoryForm(
-  categories: Readonly<Ref<TodoCategory[]>>,
+  categories: Readonly<Ref<readonly NamedItem[]>>,
   editingId?: Readonly<Ref<string>>,
+  {
+    maxLength = MAX_CATEGORY_NAME_LENGTH,
+    duplicateMessage = 'A category with this name already exists.',
+    reservedNames = [],
+  }: CategoryFormOptions = {},
 ) {
   const name = ref('')
   const trimmedName = computed(() => name.value.trim())
   const error = computed(() => {
-    if (trimmedName.value.length > MAX_CATEGORY_NAME_LENGTH) {
-      return `Use ${MAX_CATEGORY_NAME_LENGTH} characters or fewer.`
+    if (trimmedName.value.length > maxLength) {
+      return `Use ${maxLength} characters or fewer.`
     }
 
+    const lowerName = trimmedName.value.toLowerCase()
     if (
+      reservedNames.some((reserved) => reserved.toLowerCase() === lowerName) ||
       categories.value.some(
-        (category) =>
-          category.id !== editingId?.value &&
-          category.name.toLowerCase() === trimmedName.value.toLowerCase(),
+        (category) => category.id !== editingId?.value && category.name.toLowerCase() === lowerName,
       )
     ) {
-      return 'A category with this name already exists.'
+      return duplicateMessage
     }
 
     return ''

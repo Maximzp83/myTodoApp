@@ -1,23 +1,27 @@
 <script setup lang="ts">
-import { notePreview, type Note } from '@/types/note'
+import { formatNoteDate, type Note } from '@/types/note'
 
-defineProps<{ notes: Note[]; selectedId: string | undefined }>()
-const emit = defineEmits<{ select: [id: string] }>()
+defineProps<{ notes: Note[]; idPrefix: string }>()
+const emit = defineEmits<{ open: [id: string] }>()
 </script>
 
 <template>
   <ul v-if="notes.length > 0" class="note-list" aria-label="Notes">
     <li v-for="note in notes" :key="note.id">
       <button
+        :id="`${idPrefix}-${note.id}`"
         class="note-list__item"
         type="button"
-        :aria-current="note.id === selectedId ? 'true' : undefined"
-        @click="emit('select', note.id)"
+        @click="emit('open', note.id)"
       >
-        <span class="note-list__preview">{{ notePreview(note.body) || 'Empty note' }}</span>
-        <span class="note-list__date">{{ new Date(note.createdAt).toLocaleDateString() }}</span>
+        <span class="note-list__title" :class="{ 'note-list__title--empty': !note.title }">
+          {{ note.title || 'Untitled note' }}
+        </span>
+        <time class="note-list__date" :datetime="note.createdAt">
+          {{ formatNoteDate(note.createdAt) }}
+        </time>
       </button>
     </li>
   </ul>
-  <p v-else class="empty-state">No notes yet.</p>
+  <p v-else class="empty-state">No notes in this tab yet.</p>
 </template>

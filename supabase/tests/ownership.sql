@@ -9,9 +9,12 @@ insert into public.categories (id, user_id, name) values
 insert into public.todos (id, user_id, title, category_id) values
   ('20000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000001', 'Test A task', '10000000-0000-4000-8000-000000000001'),
   ('20000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000002', 'Test B task', '10000000-0000-4000-8000-000000000002');
-insert into public.notes (id, user_id, body) values
-  ('30000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000001', 'Note A'),
-  ('30000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000002', 'Note B');
+insert into public.note_tabs (id, user_id, name) values
+  ('40000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000001', 'Tab A'),
+  ('40000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000002', 'Tab B');
+insert into public.notes (id, user_id, body, tab_id) values
+  ('30000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000001', 'Note A', '40000000-0000-4000-8000-000000000001'),
+  ('30000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000002', 'Note B', '40000000-0000-4000-8000-000000000002');
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000001', true);
@@ -19,7 +22,7 @@ do $$
 declare changed integer;
 begin
   if (select count(*) from public.todos) <> 1 or (select count(*) from public.categories) <> 1
-    or (select count(*) from public.notes) <> 1 then
+    or (select count(*) from public.notes) <> 1 or (select count(*) from public.note_tabs) <> 1 then
     raise exception 'RLS failed: another account is visible.';
   end if;
   update public.notes set body = 'Forbidden' where id = '30000000-0000-4000-8000-000000000002';
@@ -35,6 +38,32 @@ begin
   end;
   update public.notes set body = 'Edited A';
   if (select body from public.notes) <> 'Edited A' then raise exception 'Own note update failed.'; end if;
+  update public.note_tabs set name = 'Forbidden' where id = '40000000-0000-4000-8000-000000000002';
+  get diagnostics changed = row_count;
+  if changed <> 0 then raise exception 'RLS failed: another note tab can be renamed.'; end if;
+  delete from public.note_tabs where id = '40000000-0000-4000-8000-000000000002';
+  get diagnostics changed = row_count;
+  if changed <> 0 then raise exception 'RLS failed: another note tab can be deleted.'; end if;
+  begin
+    insert into public.note_tabs (user_id, name) values ('00000000-0000-4000-8000-000000000002', 'Forbidden');
+    raise exception 'RLS failed: another note tab owner can be supplied.';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    update public.notes set tab_id = '40000000-0000-4000-8000-000000000002';
+    raise exception 'Ownership failed: a note tab from another account can be assigned.';
+  exception when foreign_key_violation then null;
+  end;
+  update public.notes set title = 'Title A';
+  update public.note_tabs set name = 'Renamed tab A';
+  if (select name from public.note_tabs) <> 'Renamed tab A' then raise exception 'Own note tab rename failed.'; end if;
+  delete from public.note_tabs;
+  get diagnostics changed = row_count;
+  if changed <> 1 then raise exception 'Own note tab delete failed.'; end if;
+  if (select count(*) from public.notes) <> 1 or not exists (
+    select 1 from public.notes
+    where tab_id is null and user_id = auth.uid() and title = 'Title A' and body = 'Edited A'
+  ) then raise exception 'Note tab deletion did not move the note to General.'; end if;
   update public.todos set note = 'Task note';
   if (select note from public.todos) <> 'Task note' then raise exception 'Own task note update failed.'; end if;
   update public.todos set completed = true where id = '20000000-0000-4000-8000-000000000002';
@@ -78,7 +107,8 @@ do $$
 begin
   if not exists (select 1 from public.categories where id = '10000000-0000-4000-8000-000000000002' and name = 'Test B')
     or not exists (select 1 from public.todos where id = '20000000-0000-4000-8000-000000000002' and category_id = '10000000-0000-4000-8000-000000000002' and not completed)
-    or not exists (select 1 from public.notes where id = '30000000-0000-4000-8000-000000000002' and body = 'Note B')
+    or not exists (select 1 from public.notes where id = '30000000-0000-4000-8000-000000000002' and body = 'Note B' and tab_id = '40000000-0000-4000-8000-000000000002')
+    or not exists (select 1 from public.note_tabs where id = '40000000-0000-4000-8000-000000000002' and name = 'Tab B')
   then raise exception 'Category operations changed another account.'; end if;
 end;
 $$;
@@ -99,6 +129,11 @@ begin
   begin
     perform 1 from public.notes;
     raise exception 'Unauthenticated access to notes is allowed.';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform 1 from public.note_tabs;
+    raise exception 'Unauthenticated access to note tabs is allowed.';
   exception when insufficient_privilege then null;
   end;
 end;

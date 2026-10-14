@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { test as base, expect, type BrowserContext, type Page } from '@playwright/test'
-import type { CategoryRow, NoteRow, TodoRow } from '../../src/types/database.js'
+import type { CategoryRow, NoteRow, NoteTabRow, TodoRow } from '../../src/types/database.js'
 
 type TestUser = { id: string; email: string; password: string; confirmed: boolean }
 type RecordValue = Record<string, unknown>
@@ -50,6 +50,7 @@ export class TestCloud {
   todos: TodoRow[] = []
   categories: CategoryRow[] = []
   notes: NoteRow[] = []
+  noteTabs: NoteTabRow[] = []
   failWrites = false
 
   async install(context: BrowserContext) {
@@ -241,16 +242,74 @@ export class TestCloud {
         await respond(selected.slice(offset, offset + limit))
         return
       }
+      if (url.pathname === '/rest/v1/note_tabs') {
+        const duplicate = (name: unknown, except?: NoteTabRow) =>
+          this.noteTabs.some(
+            (tab) =>
+              tab.user_id === actor.id &&
+              tab !== except &&
+              tab.name.toLowerCase() === String(name).toLowerCase(),
+          )
+        if (method === 'POST') {
+          if (body.user_id !== actor.id) {
+            await respond({ message: 'Forbidden' }, 403)
+            return
+          }
+          if (duplicate(body.name)) {
+            await respond({ message: 'A tab with this name already exists.' }, 409)
+            return
+          }
+          const tab = {
+            id: randomUUID(),
+            user_id: actor.id,
+            name: String(body.name),
+            created_at: new Date().toISOString(),
+          }
+          this.noteTabs.push(tab)
+          await respond(single ? tab : [tab])
+          return
+        }
+        const selected = this.noteTabs.filter(
+          (tab) => tab.user_id === actor.id && matching({ ...tab }, url.searchParams),
+        )
+        if ((method === 'PATCH' || method === 'DELETE') && single && selected.length !== 1) {
+          await respond({ message: 'Note tab is no longer available' }, 406)
+          return
+        }
+        if (method === 'PATCH') {
+          if (selected.some((tab) => duplicate(body.name, tab))) {
+            await respond({ message: 'A tab with this name already exists.' }, 409)
+            return
+          }
+          for (const tab of selected) tab.name = String(body.name)
+        }
+        if (method === 'DELETE') {
+          this.noteTabs = this.noteTabs.filter((tab) => !selected.includes(tab))
+          const deletedIds = new Set(selected.map((tab) => tab.id))
+          for (const note of this.notes)
+            if (note.user_id === actor.id && note.tab_id && deletedIds.has(note.tab_id))
+              note.tab_id = null
+        }
+        await respond(single ? selected[0] : selected)
+        return
+      }
       if (url.pathname === '/rest/v1/notes') {
         if (method === 'POST') {
           if (body.user_id !== actor.id) {
             await respond({ message: 'Forbidden' }, 403)
             return
           }
+          const tabId = typeof body.tab_id === 'string' ? body.tab_id : null
+          if (tabId && !this.noteTabs.some((tab) => tab.id === tabId && tab.user_id === actor.id)) {
+            await respond({ message: 'Note tab is no longer available' }, 409)
+            return
+          }
           const note = {
             id: randomUUID(),
             user_id: actor.id,
+            title: typeof body.title === 'string' ? body.title : '',
             body: typeof body.body === 'string' ? body.body : '',
+            tab_id: tabId,
             created_at: new Date().toISOString(),
           }
           this.notes.push(note)
@@ -261,7 +320,10 @@ export class TestCloud {
           .filter((note) => note.user_id === actor.id && matching({ ...note }, url.searchParams))
           .sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id))
         if (method === 'PATCH') {
-          for (const note of selected) if (typeof body.body === 'string') note.body = body.body
+          for (const note of selected) {
+            if (typeof body.title === 'string') note.title = body.title
+            if (typeof body.body === 'string') note.body = body.body
+          }
           await respond(single ? selected[0] : selected)
           return
         }

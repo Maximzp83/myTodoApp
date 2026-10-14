@@ -647,7 +647,8 @@ h1 {
 
 .app-nav__link:focus-visible,
 .todo-item__note:focus-visible,
-.note-list__item:focus-visible {
+.note-list__item:focus-visible,
+.notes-panel:focus-visible {
   outline: 2px solid #6366f1;
   outline-offset: 2px;
 }
@@ -720,7 +721,19 @@ h1 {
 
 .note-dialog__form {
   display: grid;
-  gap: 1rem;
+  gap: 0.75rem;
+}
+
+.note-dialog__header {
+  display: grid;
+  gap: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.note-dialog__date {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.85rem;
 }
 
 .note-dialog__title {
@@ -745,21 +758,14 @@ h1 {
   margin-right: auto;
 }
 
-.notes {
+.notes-panel {
   display: grid;
-  grid-template-columns: minmax(12rem, 18rem) 1fr;
-  gap: 1.5rem;
+  gap: 1rem;
   padding: 0 2.5rem 2.5rem;
 }
 
-.notes__sidebar {
-  display: grid;
-  align-content: start;
-  gap: 1rem;
-}
-
-.notes__placeholder {
-  align-self: center;
+.notes-panel__new {
+  justify-self: start;
 }
 
 .note-list {
@@ -770,74 +776,43 @@ h1 {
   list-style: none;
 }
 
-.note-list .empty-state,
-.notes__sidebar .empty-state {
-  padding: 1.5rem 0;
-}
-
 .note-list__item {
-  display: grid;
+  display: flex;
   width: 100%;
-  gap: 0.2rem;
-  border: 1px solid transparent;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid #eef2f7;
   border-radius: 0.75rem;
-  padding: 0.65rem 0.8rem;
+  padding: 0.8rem 1rem;
   color: #1e293b;
   background: transparent;
   text-align: left;
 }
 
 .note-list__item:hover {
-  background: #f1f5f9;
-}
-
-.note-list__item[aria-current='true'] {
   border-color: #c7d2fe;
   background: #eef2ff;
 }
 
-.note-list__preview {
+.note-list__title {
+  min-width: 0;
   overflow: hidden;
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.note-list__title--empty {
+  color: #94a3b8;
+  font-style: italic;
+  font-weight: 600;
+}
+
 .note-list__date {
+  flex: none;
   color: #64748b;
-  font-size: 0.75rem;
-}
-
-.note-editor {
-  display: grid;
-  align-content: start;
-  gap: 0.75rem;
-}
-
-.note-editor__text {
-  min-height: 22rem;
-}
-
-.note-editor__footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.note-editor__status {
-  margin: 0;
-  color: #64748b;
-  font-size: 0.85rem;
-}
-
-.note-editor__status[data-changed='true'] {
-  color: #b45309;
-}
-
-.note-editor__actions {
-  display: flex;
-  gap: 0.75rem;
+  font-size: 0.8rem;
 }
 
 .sr-only {
@@ -1017,25 +992,19 @@ h1 {
   color: #fda4af;
 }
 
-:root[data-theme='dark'] .note-editor__status[data-changed='true'] {
-  color: #fcd34d;
-}
-
 :root[data-theme='dark'] .note-list__item {
+  border-color: #334155;
   color: #e2e8f0;
 }
 
 :root[data-theme='dark'] .note-list__item:hover {
+  border-color: #3730a3;
   background: #1e293b;
 }
 
-:root[data-theme='dark'] .note-list__item[aria-current='true'] {
-  border-color: #3730a3;
-  background: #312e81;
-}
-
+:root[data-theme='dark'] .note-list__title--empty,
 :root[data-theme='dark'] .note-list__date,
-:root[data-theme='dark'] .note-editor__status {
+:root[data-theme='dark'] .note-dialog__date {
   color: #94a3b8;
 }
 
@@ -1078,13 +1047,13 @@ h1 {
     padding-inline: 1.25rem;
   }
 
-  .notes {
-    grid-template-columns: 1fr;
+  .notes-panel {
     padding: 0 1.25rem 1.5rem;
   }
 
-  .note-editor__text {
-    min-height: 14rem;
+  .note-list__item {
+    flex-direction: column;
+    gap: 0.2rem;
   }
 
   .category-form__controls {

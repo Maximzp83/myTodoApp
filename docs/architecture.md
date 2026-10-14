@@ -28,7 +28,7 @@ They should not directly access browser persistence.
 
 The Todo Pinia store owns the Todo collection, including task notes.
 
-The Notes Pinia store owns standalone notes.
+The Notes Pinia store owns standalone notes and their tabs.
 
 Both expose actions for modifying their state.
 
