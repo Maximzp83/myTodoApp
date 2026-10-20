@@ -121,7 +121,7 @@ function remove() {
         :id="`${id}-content`"
         v-model="content"
         class="note-textarea"
-        rows="10"
+        rows="14"
         :maxlength="MAX_NOTE_CONTENT_LENGTH"
         placeholder="Start writing…"
         :disabled="busy"
