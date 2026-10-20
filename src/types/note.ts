@@ -20,6 +20,7 @@ export interface Note {
 }
 
 export interface NoteDraft {
+  tabId: NoteTabId
   title: string
   content: string
 }

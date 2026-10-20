@@ -10,15 +10,7 @@ import {
   type Note,
   type NoteDraft,
   type NoteTab,
-  type NoteTabId,
 } from '@/types/note'
-
-function normalizeDraft(draft: NoteDraft) {
-  const title = draft.title.trim()
-  if (title.length > MAX_NOTE_TITLE_LENGTH || draft.content.length > MAX_NOTE_CONTENT_LENGTH)
-    return null
-  return { title, content: draft.content }
-}
 
 export const useNotesStore = defineStore('notes', () => {
   const tabs = ref<NoteTab[]>([])
@@ -79,6 +71,17 @@ export const useNotesStore = defineStore('notes', () => {
       lowerName !== DEFAULT_NOTE_TAB_NAME.toLowerCase() &&
       !tabs.value.some((tab) => tab.id !== exceptId && tab.name.toLowerCase() === lowerName)
     )
+  }
+
+  function normalizeDraft(draft: NoteDraft): NoteDraft | null {
+    const title = draft.title.trim()
+    if (
+      title.length > MAX_NOTE_TITLE_LENGTH ||
+      draft.content.length > MAX_NOTE_CONTENT_LENGTH ||
+      (draft.tabId !== null && !tabs.value.some((tab) => tab.id === draft.tabId))
+    )
+      return null
+    return { tabId: draft.tabId, title, content: draft.content }
   }
 
   async function mutateTabs<T>(
@@ -145,22 +148,15 @@ export const useNotesStore = defineStore('notes', () => {
     return result !== null
   }
 
-  async function addNote(tabId: NoteTabId, draft: NoteDraft) {
+  async function addNote(draft: NoteDraft) {
     const normalized = normalizeDraft(draft)
-    if (
-      !userId.value ||
-      !loaded.value ||
-      creating.value ||
-      !normalized ||
-      (tabId !== null && !tabs.value.some((tab) => tab.id === tabId))
-    )
-      return null
+    if (!userId.value || !loaded.value || creating.value || !normalized) return null
     const owner = userId.value
     const version = accountVersion
     creating.value = true
     error.value = ''
     try {
-      const note = await notesApi.createNote(owner, tabId, normalized)
+      const note = await notesApi.createNote(owner, normalized)
       if (version !== accountVersion) return null
       notes.value.unshift(note)
       return note

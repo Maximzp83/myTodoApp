@@ -1,6 +1,6 @@
 import { fetchAllRows, getSupabase } from '@/services/supabase'
 import type { NoteRow, NoteTabRow } from '@/types/database'
-import type { Note, NoteDraft, NoteTab, NoteTabId } from '@/types/note'
+import type { Note, NoteDraft, NoteTab } from '@/types/note'
 
 // The database column stays `body`; the app calls it content.
 export function toNote(row: NoteRow): Note {
@@ -77,10 +77,10 @@ export async function deleteTab(userId: string, id: string) {
   return data.id
 }
 
-export async function createNote(userId: string, tabId: NoteTabId, draft: NoteDraft) {
+export async function createNote(userId: string, draft: NoteDraft) {
   const { data, error } = await getSupabase()
     .from('notes')
-    .insert({ user_id: userId, tab_id: tabId, title: draft.title, body: draft.content })
+    .insert({ user_id: userId, tab_id: draft.tabId, title: draft.title, body: draft.content })
     .select()
     .single()
   if (error) throw error
@@ -90,7 +90,7 @@ export async function createNote(userId: string, tabId: NoteTabId, draft: NoteDr
 export async function updateNote(userId: string, id: string, draft: NoteDraft) {
   const { data, error } = await getSupabase()
     .from('notes')
-    .update({ title: draft.title, body: draft.content })
+    .update({ title: draft.title, body: draft.content, tab_id: draft.tabId })
     .eq('user_id', userId)
     .eq('id', id)
     .select()

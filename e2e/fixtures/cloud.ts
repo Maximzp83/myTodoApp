@@ -320,9 +320,15 @@ export class TestCloud {
           .filter((note) => note.user_id === actor.id && matching({ ...note }, url.searchParams))
           .sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id))
         if (method === 'PATCH') {
+          const tabId = typeof body.tab_id === 'string' ? body.tab_id : null
+          if (tabId && !this.noteTabs.some((tab) => tab.id === tabId && tab.user_id === actor.id)) {
+            await respond({ message: 'Note tab is no longer available' }, 409)
+            return
+          }
           for (const note of selected) {
             if (typeof body.title === 'string') note.title = body.title
             if (typeof body.body === 'string') note.body = body.body
+            if ('tab_id' in body) note.tab_id = tabId
           }
           await respond(single ? selected[0] : selected)
           return

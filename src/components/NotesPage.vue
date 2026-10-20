@@ -100,7 +100,7 @@ async function saveNote(draft: NoteDraft) {
   dialogSaving.value = true
   const savedId =
     noteId === null
-      ? ((await notesStore.addNote(activeTabId.value, draft))?.id ?? null)
+      ? ((await notesStore.addNote(draft))?.id ?? null)
       : (await notesStore.updateNote(noteId, draft))
         ? noteId
         : null
@@ -183,6 +183,8 @@ async function removeNote() {
     :key="dialogNoteId ?? 'new'"
     v-model:dirty="dirty"
     :note="dialogNote"
+    :tabs="tabs"
+    :new-note-tab-id="activeTabId"
     :busy="dialogBusy"
     :error="notesStore.error"
     @save="saveNote"

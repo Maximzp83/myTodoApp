@@ -10,15 +10,24 @@ import {
   watch,
 } from 'vue'
 import {
+  DEFAULT_NOTE_TAB_NAME,
   formatNoteDate,
   MAX_NOTE_CONTENT_LENGTH,
   MAX_NOTE_TITLE_LENGTH,
   type Note,
   type NoteDraft,
+  type NoteTab,
+  type NoteTabId,
 } from '@/types/note'
 
-// Without a note, the dialog creates a new one.
-const props = defineProps<{ note: Note | null; busy: boolean; error: string }>()
+// Without a note, the dialog creates a new one in newNoteTabId.
+const props = defineProps<{
+  note: Note | null
+  tabs: NoteTab[]
+  newNoteTabId: NoteTabId
+  busy: boolean
+  error: string
+}>()
 const emit = defineEmits<{ save: [draft: NoteDraft]; remove: []; close: [] }>()
 const dirty = defineModel<boolean>('dirty', { default: false })
 
@@ -26,9 +35,17 @@ const dialog = useTemplateRef('dialog')
 const id = useId()
 const title = ref(props.note?.title ?? '')
 const content = ref(props.note?.content ?? '')
+// A note whose tab was deleted elsewhere is shown in General.
+const initialTabId =
+  props.note?.tabId && props.tabs.some((tab) => tab.id === props.note?.tabId)
+    ? props.note.tabId
+    : null
+const tabId = ref<NoteTabId>(props.note ? initialTabId : props.newNoteTabId)
 const changed = computed(() =>
   props.note
-    ? title.value.trim() !== props.note.title || content.value !== props.note.content
+    ? title.value.trim() !== props.note.title ||
+      content.value !== props.note.content ||
+      tabId.value !== initialTabId
     : title.value.trim().length > 0 || content.value.trim().length > 0,
 )
 const heading = computed(() => (props.note ? props.note.title || 'Untitled note' : 'New note'))
@@ -50,7 +67,8 @@ function requestClose() {
 }
 
 function save() {
-  if (changed.value && !props.busy) emit('save', { title: title.value, content: content.value })
+  if (changed.value && !props.busy)
+    emit('save', { tabId: tabId.value, title: title.value, content: content.value })
 }
 
 function remove() {
@@ -91,6 +109,13 @@ function remove() {
         :disabled="busy"
         autofocus
       />
+      <template v-if="note">
+        <label class="category-form__label" :for="`${id}-tab`">Tab</label>
+        <select :id="`${id}-tab`" v-model="tabId" class="todo-form__select" :disabled="busy">
+          <option :value="null">{{ DEFAULT_NOTE_TAB_NAME }}</option>
+          <option v-for="tab in tabs" :key="tab.id" :value="tab.id">{{ tab.name }}</option>
+        </select>
+      </template>
       <label class="category-form__label" :for="`${id}-content`">Content</label>
       <textarea
         :id="`${id}-content`"

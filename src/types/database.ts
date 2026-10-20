@@ -67,7 +67,7 @@ export interface Database {
           tab_id?: string | null
           created_at?: string
         }
-        Update: { title?: string; body?: string }
+        Update: { title?: string; body?: string; tab_id?: string | null }
         Relationships: []
       }
       note_tabs: {

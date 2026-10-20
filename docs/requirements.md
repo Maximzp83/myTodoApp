@@ -99,6 +99,8 @@ when the title is empty, and the creation date in the user's local format.
 
 - Clicking a note opens a modal dialog with its title, content, and creation date.
   The title and content are edited directly in the dialog.
+- In the edit dialog, the Tab field moves the note to another tab or to General when saved.
+  Notes can change tabs only there; a new note is always created in the active tab.
 - "New note" opens the same dialog for a new note in the active tab. The note is stored
   only when it is saved, so cancelling leaves nothing behind.
 - Save (or Ctrl/Cmd+S) stores the changes and closes the dialog. If saving fails, the dialog

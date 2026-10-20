@@ -27,9 +27,11 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+const tabs = [{ id: 'ideas', name: 'Ideas' }]
+
 function mountDialog(value: Note | null = note) {
   return mount(NoteDialog, {
-    props: { note: value, busy: false, error: '' },
+    props: { note: value, tabs, newNoteTabId: 'ideas', busy: false, error: '' },
     attachTo: document.body,
   })
 }
@@ -60,7 +62,9 @@ describe('NoteDialog', () => {
     await wrapper.get('textarea').setValue('Milk')
     expect(wrapper.emitted('update:dirty')).toContainEqual([true])
     await wrapper.get('form').trigger('submit')
-    expect(wrapper.emitted('save')).toEqual([[{ title: 'Groceries ', content: 'Milk' }]])
+    expect(wrapper.emitted('save')).toEqual([
+      [{ tabId: null, title: 'Groceries ', content: 'Milk' }],
+    ])
     wrapper.unmount()
   })
 
@@ -69,12 +73,33 @@ describe('NoteDialog', () => {
     expect(wrapper.get('h2').text()).toBe('New note')
     expect(wrapper.find('time').exists()).toBe(false)
     expect(wrapper.findAll('button').some((item) => item.text() === 'Delete note')).toBe(false)
+    expect(wrapper.find('select').exists()).toBe(false)
     const save = wrapper.get<HTMLButtonElement>('button[type="submit"]')
     await wrapper.get('textarea').setValue('   ')
     expect(save.element.disabled).toBe(true)
     await wrapper.get('input').setValue('Plan')
     await wrapper.get('form').trigger('keydown', { key: 's', ctrlKey: true })
-    expect(wrapper.emitted('save')).toEqual([[{ title: 'Plan', content: '   ' }]])
+    expect(wrapper.emitted('save')).toEqual([[{ tabId: 'ideas', title: 'Plan', content: '   ' }]])
+    wrapper.unmount()
+  })
+
+  it('moves a note to another tab when saved', async () => {
+    const wrapper = mountDialog()
+    const select = wrapper.get<HTMLSelectElement>('select')
+    expect([...select.element.options].map((option) => option.text)).toEqual(['General', 'Ideas'])
+    expect(select.element.selectedIndex).toBe(0)
+    await select.setValue('ideas')
+    await wrapper.get('form').trigger('submit')
+    expect(wrapper.emitted('save')).toEqual([
+      [{ tabId: 'ideas', title: 'Groceries', content: 'Milk\nBread' }],
+    ])
+    wrapper.unmount()
+  })
+
+  it('shows a note from a missing tab as General without marking it changed', () => {
+    const wrapper = mountDialog({ ...note, tabId: 'deleted-elsewhere' })
+    expect(wrapper.get<HTMLSelectElement>('select').element.selectedIndex).toBe(0)
+    expect(wrapper.get<HTMLButtonElement>('button[type="submit"]').element.disabled).toBe(true)
     wrapper.unmount()
   })
 

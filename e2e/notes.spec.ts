@@ -194,3 +194,38 @@ test('renames a tab and moves its notes to General when it is deleted', async ({
   await page.getByRole('link', { name: 'Tasks', exact: true }).click()
   await expect(page.getByLabel('New Todo', { exact: true })).toBeVisible()
 })
+
+test('moves a note between tabs from the edit dialog only', async ({ page, cloud }) => {
+  await openNotes(page)
+  await createTab(page, 'Ideas')
+  await page.getByRole('tab', { name: 'General', exact: true }).click()
+
+  await page.getByRole('button', { name: 'New note', exact: true }).click()
+  await expect(
+    page.getByRole('dialog', { name: 'New note' }).getByLabel('Tab', { exact: true }),
+  ).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await createNote(page, 'Move me', 'Somewhere else')
+
+  const noteButton = page.getByRole('button', { name: /^Move me/ })
+  await noteButton.click()
+  const dialog = page.getByRole('dialog', { name: 'Move me' })
+  const tabSelect = dialog.getByLabel('Tab', { exact: true })
+  await expect(tabSelect.locator('option:checked')).toHaveText('General')
+  await tabSelect.selectOption({ label: 'Ideas' })
+  await dialog.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(dialog).toBeHidden()
+  await expect(noteButton).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'New note', exact: true })).toBeFocused()
+  expect(cloud.notes[0]?.tab_id).toBe(cloud.noteTabs[0]?.id)
+
+  await page.getByRole('tab', { name: 'Ideas', exact: true }).click()
+  await noteButton.click()
+  await expect(tabSelect.locator('option:checked')).toHaveText('Ideas')
+  await tabSelect.selectOption({ label: 'General' })
+  await dialog.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(noteButton).toHaveCount(0)
+  await page.getByRole('tab', { name: 'General', exact: true }).click()
+  await expect(noteButton).toBeVisible()
+  expect(cloud.notes[0]?.tab_id).toBeNull()
+})

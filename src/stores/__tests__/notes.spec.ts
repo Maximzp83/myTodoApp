@@ -42,8 +42,10 @@ describe('notes store', () => {
   it('does not load or write notes before sign-in', async () => {
     const store = useNotesStore()
     await store.refresh()
-    expect(await store.addNote(null, { title: 'Note', content: '' })).toBeNull()
-    expect(await store.updateNote(first.id, { title: 'Note', content: '' })).toBe(false)
+    expect(await store.addNote({ tabId: null, title: 'Note', content: '' })).toBeNull()
+    expect(await store.updateNote(first.id, { tabId: ideas.id, title: 'Note', content: '' })).toBe(
+      false,
+    )
     expect(await store.addTab('Work')).toBeNull()
     expect(api.fetchNotesData).not.toHaveBeenCalled()
     expect(api.createNote).not.toHaveBeenCalled()
@@ -96,7 +98,11 @@ describe('notes store', () => {
     })
     vi.mocked(api.deleteTab).mockResolvedValue(ideas.id)
 
-    const save = store.updateNote(first.id, { title: 'Edited', content: 'Edited content' })
+    const save = store.updateNote(first.id, {
+      tabId: ideas.id,
+      title: 'Edited',
+      content: 'Edited content',
+    })
     await vi.waitFor(() => expect(api.updateNote).toHaveBeenCalled())
     const removal = store.removeTab(ideas.id)
     await Promise.resolve()
@@ -123,23 +129,26 @@ describe('notes store', () => {
     const store = await readyStore()
     const created = { ...first, id: 'note-3', title: 'Plan', content: ' body ' }
     vi.mocked(api.createNote).mockResolvedValue(created)
-    expect(await store.addNote(ideas.id, { title: '  Plan ', content: ' body ' })).toEqual(created)
-    expect(api.createNote).toHaveBeenCalledExactlyOnceWith('account-a', ideas.id, {
+    expect(await store.addNote({ tabId: ideas.id, title: '  Plan ', content: ' body ' })).toEqual(
+      created,
+    )
+    expect(api.createNote).toHaveBeenCalledExactlyOnceWith('account-a', {
+      tabId: ideas.id,
       title: 'Plan',
       content: ' body ',
     })
     expect(store.notes.map((note) => note.id)).toEqual(['note-3', 'note-1', 'note-2'])
 
-    expect(await store.addNote('missing', { title: 'Lost', content: '' })).toBeNull()
-    expect(await store.addNote(null, { title: 'x'.repeat(121), content: '' })).toBeNull()
-    expect(await store.addNote(null, { title: '', content: 'x'.repeat(10001) })).toBeNull()
+    expect(await store.addNote({ tabId: 'missing', title: 'Lost', content: '' })).toBeNull()
+    expect(await store.addNote({ tabId: null, title: 'x'.repeat(121), content: '' })).toBeNull()
+    expect(await store.addNote({ tabId: null, title: '', content: 'x'.repeat(10001) })).toBeNull()
     expect(api.createNote).toHaveBeenCalledTimes(1)
   })
 
   it('reports a failed note creation', async () => {
     const store = await readyStore()
     vi.mocked(api.createNote).mockRejectedValue(new Error('Create failed'))
-    expect(await store.addNote(null, { title: 'Note', content: '' })).toBeNull()
+    expect(await store.addNote({ tabId: null, title: 'Note', content: '' })).toBeNull()
     expect(store.error).toBe('Create failed')
     expect(store.creating).toBe(false)
     expect(store.notes).toHaveLength(2)
@@ -160,8 +169,16 @@ describe('notes store', () => {
         return { ...first, id, ...draft }
       })
 
-    const earlier = store.updateNote(first.id, { title: 'First', content: 'Draft' })
-    const later = store.updateNote(first.id, { title: 'First', content: 'Draft final' })
+    const earlier = store.updateNote(first.id, {
+      tabId: ideas.id,
+      title: 'First',
+      content: 'Draft',
+    })
+    const later = store.updateNote(first.id, {
+      tabId: ideas.id,
+      title: 'First',
+      content: 'Draft final',
+    })
     await Promise.resolve()
     expect(calls).toEqual(['Draft'])
     releaseFirst()
@@ -171,13 +188,37 @@ describe('notes store', () => {
     expect(store.notes[0]?.content).toBe('Draft final')
   })
 
+  it('moves a note to another tab or General and rejects unknown tabs', async () => {
+    const store = await readyStore()
+    vi.mocked(api.updateNote).mockImplementation(async (_owner, id, draft) => ({
+      ...first,
+      id,
+      ...draft,
+    }))
+    const draft = { title: first.title, content: first.content }
+    expect(await store.updateNote(first.id, { ...draft, tabId: null })).toBe(true)
+    expect(api.updateNote).toHaveBeenLastCalledWith('account-a', first.id, {
+      ...draft,
+      tabId: null,
+    })
+    expect(store.notes[0]?.tabId).toBeNull()
+    expect(await store.updateNote(first.id, { ...draft, tabId: ideas.id })).toBe(true)
+    expect(store.notes[0]?.tabId).toBe(ideas.id)
+    expect(await store.updateNote(first.id, { ...draft, tabId: 'missing' })).toBe(false)
+    expect(api.updateNote).toHaveBeenCalledTimes(2)
+  })
+
   it('reports a failed save and keeps the stored note', async () => {
     const store = await readyStore()
     vi.mocked(api.updateNote).mockRejectedValue(new Error('Save failed'))
-    expect(await store.updateNote(first.id, { title: 'New', content: 'Text' })).toBe(false)
+    expect(
+      await store.updateNote(first.id, { tabId: ideas.id, title: 'New', content: 'Text' }),
+    ).toBe(false)
     expect(store.error).toBe('Save failed')
     expect(store.notes[0]).toEqual(first)
-    expect(await store.updateNote('missing', { title: '', content: 'Text' })).toBe(false)
+    expect(await store.updateNote('missing', { tabId: ideas.id, title: '', content: 'Text' })).toBe(
+      false,
+    )
     expect(api.updateNote).toHaveBeenCalledTimes(1)
   })
 
@@ -190,11 +231,17 @@ describe('notes store', () => {
     })
     vi.mocked(api.deleteNote).mockResolvedValue([first.id])
 
-    const save = store.updateNote(first.id, { title: 'First', content: 'Last words' })
+    const save = store.updateNote(first.id, {
+      tabId: ideas.id,
+      title: 'First',
+      content: 'Last words',
+    })
     await vi.waitFor(() => expect(api.updateNote).toHaveBeenCalled())
     const removal = store.removeNote(first.id)
     expect(store.removingIds.has(first.id)).toBe(true)
-    expect(await store.updateNote(first.id, { title: 'Too late', content: '' })).toBe(false)
+    expect(
+      await store.updateNote(first.id, { tabId: ideas.id, title: 'Too late', content: '' }),
+    ).toBe(false)
     releaseSave()
     expect(await save).toBe(true)
     expect(await removal).toBe(true)
