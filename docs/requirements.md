@@ -111,6 +111,8 @@ The active tab lists its notes in the user's order. Each item shows the title, o
 
 - Users reorder the notes of the active tab by dragging a note by its handle with a mouse,
   touch, or pen. A line shows where the note will land; Escape cancels the drag.
+- Holding a dragged note near the top or bottom edge of the window scrolls the page,
+  faster closer to the edge, so a note can be moved past the visible part of a long list.
 - Each note also has Move up and Move down buttons for keyboard and screen reader users.
   They are visually hidden until one of them has focus. After a move, focus stays on the
   button and the new position is announced.

@@ -60,12 +60,44 @@ async function pointer(
   await nextTick()
 }
 
+// Rows are 40px high, 50px apart in the page, and move up as the page scrolls.
 function stubRows(wrapper: VueWrapper) {
   wrapper.findAll('li').forEach((row, index) => {
-    vi.spyOn(row.element, 'getBoundingClientRect').mockReturnValue(
-      DOMRect.fromRect({ x: 0, y: index * 50, width: 300, height: 40 }),
+    vi.spyOn(row.element, 'getBoundingClientRect').mockImplementation(() =>
+      DOMRect.fromRect({ x: 0, y: index * 50 - window.scrollY, width: 300, height: 40 }),
     )
   })
+}
+
+// A window of the given height whose page can scroll down by maxScroll pixels.
+// Animation frames run only when the test calls runFrame.
+function stubWindowScroll(innerHeight: number, maxScroll: number) {
+  const frames = new Map<number, FrameRequestCallback>()
+  let nextFrame = 0
+  vi.stubGlobal('innerHeight', innerHeight)
+  vi.stubGlobal('scrollY', 0)
+  const scrollBy = vi.fn<(x: number, y: number) => void>((_x, y) => {
+    vi.stubGlobal('scrollY', Math.min(Math.max(window.scrollY + y, 0), maxScroll))
+    window.dispatchEvent(new Event('scroll'))
+  })
+  vi.stubGlobal('scrollBy', scrollBy)
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+    nextFrame += 1
+    frames.set(nextFrame, callback)
+    return nextFrame
+  })
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => frames.delete(id))
+  return {
+    scrollBy,
+    pendingFrames: () => frames.size,
+    async runFrame() {
+      const [id, callback] = [...frames][0] ?? []
+      if (id === undefined || !callback) throw new Error('Expected a pending animation frame')
+      frames.delete(id)
+      callback(0)
+      await nextTick()
+    },
+  }
 }
 
 beforeAll(() => {
@@ -75,6 +107,7 @@ beforeAll(() => {
 
 afterEach(() => {
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
   document.body.innerHTML = ''
 })
 
@@ -138,6 +171,44 @@ describe('NoteList', () => {
 
     expect(reorders).toEqual([['gamma', null]])
     expect(rows()[0]?.classes()).not.toContain('note-list__row--drop-before')
+  })
+
+  it('scrolls the page while a dragged note is held near the window edge', async () => {
+    const page = stubWindowScroll(120, 40)
+    const { wrapper, reorders } = mountReorderable(threeNotes())
+    stubRows(wrapper)
+    const handle = wrapper.findAll('.note-list__handle')[0]
+    const rows = () => wrapper.findAll('li')
+
+    await pointer(handle, 'pointerdown', { button: 0, clientY: 20 })
+    await pointer(handle, 'pointermove', { clientY: 60 })
+    expect(page.pendingFrames()).toBe(0)
+    // Scrolling with the mouse wheel keeps the dragged row under the pointer too.
+    vi.stubGlobal('scrollY', 10)
+    window.dispatchEvent(new Event('scroll'))
+    await nextTick()
+    expect(rows()[0]?.attributes('style')).toContain('translateY(50px)')
+    vi.stubGlobal('scrollY', 0)
+    await pointer(handle, 'pointermove', { clientY: 115 })
+    expect(page.pendingFrames()).toBe(1)
+    await page.runFrame()
+    expect(page.scrollBy).toHaveBeenLastCalledWith(0, 17)
+    expect(rows()[0]?.attributes('style')).toContain('translateY(112px)')
+    await page.runFrame()
+    await page.runFrame()
+    // The fourth frame finds the end of the page and stops scrolling.
+    await page.runFrame()
+    expect(window.scrollY).toBe(40)
+    expect(page.scrollBy).toHaveBeenCalledTimes(4)
+    expect(page.pendingFrames()).toBe(0)
+    expect(rows()[0]?.attributes('style')).toContain('translateY(135px)')
+    expect(rows()[2]?.classes()).toContain('note-list__row--drop-after')
+
+    await pointer(handle, 'pointermove', { clientY: 5 })
+    expect(page.pendingFrames()).toBe(1)
+    await pointer(handle, 'pointerup', { clientY: 115 })
+    expect(page.pendingFrames()).toBe(0)
+    expect(reorders).toEqual([['alpha', 'gamma']])
   })
 
   it('ignores a drag that is cancelled or ends where it started', async () => {

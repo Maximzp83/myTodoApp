@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { test, expect, login } from './fixtures/cloud.js'
 
 async function openNotes(page: Page) {
@@ -246,6 +246,12 @@ async function dragNoteAbove(page: Page, title: string, targetTitle: string) {
   await page.mouse.up()
 }
 
+async function visibleBox(locator: Locator) {
+  const box = await locator.boundingBox()
+  if (!box) throw new Error('Expected a visible element')
+  return box
+}
+
 async function createNotes(page: Page, titles: string[]) {
   for (const title of titles) await createNote(page, title, '')
 }
@@ -305,4 +311,27 @@ test('moves notes with buttons shown only on focus and reverts a failed move', a
   cloud.failWrites = false
   await page.reload()
   await expect(items).toContainText(['Beta', 'Gamma', 'Alpha'])
+})
+
+test('scrolls the page while a note is held at the window edge', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 500 })
+  await openNotes(page)
+  const titles = ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight']
+  await createNotes(page, titles)
+  const items = page.getByRole('list', { name: 'Notes' }).getByRole('listitem')
+  const handle = noteRow(page, 'Eight').getByTitle('Drag to reorder')
+  await handle.scrollIntoViewIfNeeded()
+  const box = await visibleBox(handle)
+  const atPageEnd = () =>
+    page.evaluate(
+      () => Math.ceil(window.scrollY + window.innerHeight) >= document.documentElement.scrollHeight,
+    )
+  expect(await atPageEnd()).toBe(false)
+
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2, 495, { steps: 5 })
+  await expect.poll(atPageEnd).toBe(true)
+  await page.mouse.up()
+  await expect(items).toContainText([...titles.slice(0, 7).reverse(), 'Eight'])
 })
