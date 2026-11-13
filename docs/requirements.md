@@ -52,6 +52,18 @@ Default filters:
 - all
 - all priorities
 
+## Sort
+
+Tasks are sorted by creation date:
+
+- oldest first (default), so new tasks appear at the end of the list
+- newest first
+
+The sort applies together with the filters and the selected category.
+The page opens with oldest first; the choice is not remembered between visits.
+
+Each task shows its creation date in the user's local format.
+
 ## Counter
 
 Display the number of active Todos.

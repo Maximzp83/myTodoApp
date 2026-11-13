@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { TodoCategory } from '@/types/category'
-import { prioritiesList, type Todo } from '@/types/todo'
+import { formatTodoDate, prioritiesList, type Todo } from '@/types/todo'
 
 const props = defineProps<{
   todo: Todo
@@ -45,6 +45,9 @@ function changeCategory(event: Event) {
       <span class="todo-priority" :data-priority-id="todo.priorityId">
         {{ priorityLabel }}
       </span>
+      <time class="todo-item__date" :datetime="todo.createdAt">
+        {{ formatTodoDate(todo.createdAt) }}
+      </time>
     </div>
     <div class="todo-item__actions">
       <button

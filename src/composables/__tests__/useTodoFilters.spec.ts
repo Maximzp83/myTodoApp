@@ -1,7 +1,7 @@
 import { nextTick, ref } from 'vue'
 import { describe, expect, it } from 'vitest'
 import { useTodoFilters } from '@/composables/useTodoFilters'
-import { TodoFilter, TodoPriorityId, type Todo } from '@/types/todo'
+import { TodoFilter, TodoPriorityId, TodoSort, type Todo } from '@/types/todo'
 
 const todos: Todo[] = [
   {
@@ -30,6 +30,39 @@ describe('useTodoFilters', () => {
 
     expect(filter.value).toBe(TodoFilter.All)
     expect(filteredTodos.value).toEqual(todos)
+  })
+
+  it('sorts tasks by creation date, oldest first by default', () => {
+    const sameTime: Todo = { ...todos[0]!, id: 'same-time-todo' }
+    const { sort, filteredTodos } = useTodoFilters(ref([todos[1]!, sameTime, todos[0]!]))
+    const ids = () => filteredTodos.value.map((todo) => todo.id)
+
+    expect(sort.value).toBe(TodoSort.OldestFirst)
+    expect(ids()).toEqual(['active-todo', 'same-time-todo', 'completed-todo'])
+
+    sort.value = TodoSort.NewestFirst
+    expect(ids()).toEqual(['completed-todo', 'same-time-todo', 'active-todo'])
+  })
+
+  it('sorts the filtered tasks without reordering the source list', () => {
+    const laterActive: Todo = {
+      ...todos[0]!,
+      id: 'later-active-todo',
+      createdAt: '2026-08-14T14:00:00.000Z',
+    }
+    const source = [laterActive, todos[1]!, todos[0]!]
+    const { sort, filter, filteredTodos } = useTodoFilters(ref(source))
+    const ids = () => filteredTodos.value.map((todo) => todo.id)
+
+    filter.value = TodoFilter.Active
+    expect(ids()).toEqual(['active-todo', 'later-active-todo'])
+    sort.value = TodoSort.NewestFirst
+    expect(ids()).toEqual(['later-active-todo', 'active-todo'])
+    expect(source.map((todo) => todo.id)).toEqual([
+      'later-active-todo',
+      'completed-todo',
+      'active-todo',
+    ])
   })
 
   it('filters active and completed Todos', () => {

@@ -1,15 +1,20 @@
 import { computed, ref, watch, type Ref } from 'vue'
 import type { TodoCategory, TodoCategoryFilter } from '@/types/category'
-import { TodoFilter, type Todo, type TodoPriorityId } from '@/types/todo'
+import { TodoFilter, TodoSort, type Todo, type TodoPriorityId } from '@/types/todo'
 
 function assertNever(value: never): never {
   throw new Error(`Unsupported Todo filter: ${String(value)}`)
+}
+
+function compareByCreation(a: Todo, b: Todo) {
+  return Date.parse(a.createdAt) - Date.parse(b.createdAt) || a.id.localeCompare(b.id)
 }
 
 export function useTodoFilters(todos: Ref<Todo[]>, categories?: Readonly<Ref<TodoCategory[]>>) {
   const filter = ref<TodoFilter>(TodoFilter.All)
   const priorityId = ref<TodoPriorityId | null>(null)
   const categoryId = ref<TodoCategoryFilter>(undefined)
+  const sort = ref<TodoSort>(TodoSort.OldestFirst)
   if (categories) {
     watch(
       () =>
@@ -45,15 +50,17 @@ export function useTodoFilters(todos: Ref<Todo[]>, categories?: Readonly<Ref<Tod
         return assertNever(filter.value)
     }
 
-    if (priorityId.value === null) {
-      return statusFilteredTodos
-    }
-
-    return statusFilteredTodos.filter((todo) => todo.priorityId === priorityId.value)
+    const visibleTodos =
+      priorityId.value === null
+        ? statusFilteredTodos
+        : statusFilteredTodos.filter((todo) => todo.priorityId === priorityId.value)
+    const direction = sort.value === TodoSort.NewestFirst ? -1 : 1
+    // Copy before sorting: the visible list may be the store's own array.
+    return [...visibleTodos].sort((a, b) => direction * compareByCreation(a, b))
   })
 
   const activeCount = computed(() => categoryTodos.value.filter((todo) => !todo.completed).length)
   const hasCompleted = computed(() => categoryTodos.value.some((todo) => todo.completed))
 
-  return { filter, priorityId, categoryId, filteredTodos, activeCount, hasCompleted }
+  return { filter, priorityId, categoryId, sort, filteredTodos, activeCount, hasCompleted }
 }

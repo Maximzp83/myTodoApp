@@ -38,3 +38,14 @@ export enum TodoFilter {
   Active = 'active',
   Completed = 'completed',
 }
+
+export enum TodoSort {
+  OldestFirst = 'oldest-first',
+  NewestFirst = 'newest-first',
+}
+
+const todoDateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' })
+
+export function formatTodoDate(createdAt: string) {
+  return todoDateFormat.format(new Date(createdAt))
+}

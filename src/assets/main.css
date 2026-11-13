@@ -486,6 +486,14 @@ h1 {
   background: #e0e7ff;
 }
 
+.todo-sort {
+  display: grid;
+  gap: 0.35rem;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
 .todo-summary {
   display: flex;
   align-items: center;
@@ -575,6 +583,12 @@ h1 {
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.todo-item__date {
+  flex: none;
+  color: #64748b;
+  font-size: 0.8rem;
 }
 
 .todo-priority[data-priority-id='1'] {
@@ -850,6 +864,7 @@ h1 {
 :root[data-theme='dark'] .todo-header__intro,
 :root[data-theme='dark'] .todo-form__priority,
 :root[data-theme='dark'] .todo-form__category,
+:root[data-theme='dark'] .todo-sort,
 :root[data-theme='dark'] .category-form__label,
 :root[data-theme='dark'] .todo-summary__count,
 :root[data-theme='dark'] .todo-filter,
@@ -1005,7 +1020,8 @@ h1 {
 
 :root[data-theme='dark'] .note-list__title--empty,
 :root[data-theme='dark'] .note-list__date,
-:root[data-theme='dark'] .note-dialog__date {
+:root[data-theme='dark'] .note-dialog__date,
+:root[data-theme='dark'] .todo-item__date {
   color: #94a3b8;
 }
 

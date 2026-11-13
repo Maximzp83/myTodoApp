@@ -9,6 +9,7 @@ import TodoFilters from '@/components/TodoFilters.vue'
 import TodoForm from '@/components/TodoForm.vue'
 import TodoList from '@/components/TodoList.vue'
 import TodoNoteDialog from '@/components/TodoNoteDialog.vue'
+import TodoSort from '@/components/TodoSort.vue'
 import TodoSummary from '@/components/TodoSummary.vue'
 import { useTodoFilters } from '@/composables/useTodoFilters'
 import { useTodoStore } from '@/stores/todo'
@@ -19,10 +20,8 @@ defineProps<{ user: AccountUser; accountBusy: boolean; authError: string }>()
 const emit = defineEmits<{ logout: [] }>()
 const todoStore = useTodoStore()
 const { todos, categories } = storeToRefs(todoStore)
-const { filter, priorityId, categoryId, filteredTodos, activeCount, hasCompleted } = useTodoFilters(
-  todos,
-  categories,
-)
+const { filter, priorityId, categoryId, sort, filteredTodos, activeCount, hasCompleted } =
+  useTodoFilters(todos, categories)
 const categoryPanelId = useId()
 const categoryResetVersion = ref(0)
 const todoResetVersion = ref(0)
@@ -166,6 +165,7 @@ async function removeCategory(id: string) {
       />
       <div class="todo-controls">
         <TodoFilters v-model="filter" v-model:priority-id="priorityId" />
+        <TodoSort v-model="sort" />
         <TodoSummary
           :active-count="activeCount"
           :has-completed="hasCompleted"
