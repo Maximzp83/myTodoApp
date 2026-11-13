@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import * as notesApi from '@/services/notesApi'
 import { errorMessage } from '@/services/errors'
 import {
+  compareNoteOrder,
   DEFAULT_NOTE_TAB_NAME,
   MAX_NOTE_CONTENT_LENGTH,
   MAX_NOTE_TAB_NAME_LENGTH,
@@ -25,6 +26,11 @@ export const useNotesStore = defineStore('notes', () => {
   let accountVersion = 0
   // Saves of one note run in order, so a slow earlier save cannot overwrite a later one.
   const pendingSaves = new Map<string, Promise<boolean>>()
+  // Reorders run one after another. Each one is shown at once; the server's positions are
+  // applied when the last queued reorder finishes, so earlier answers cannot undo later moves.
+  let reorderQueue: Promise<unknown> = Promise.resolve()
+  let queuedReorders = 0
+  let confirmedPositions = new Map<string, number>()
 
   function setAccount(id: string | null) {
     if (userId.value === id) return
@@ -38,6 +44,9 @@ export const useNotesStore = defineStore('notes', () => {
     tabSaving.value = false
     removingIds.value = new Set()
     pendingSaves.clear()
+    reorderQueue = Promise.resolve()
+    queuedReorders = 0
+    confirmedPositions = new Map()
     error.value = ''
   }
 
@@ -49,6 +58,7 @@ export const useNotesStore = defineStore('notes', () => {
     error.value = ''
     try {
       if (pendingSaves.size > 0) await Promise.all(pendingSaves.values())
+      await reorderQueue
       if (version !== accountVersion) return
       const data = await notesApi.fetchNotesData(id)
       if (version !== accountVersion) return
@@ -185,7 +195,10 @@ export const useNotesStore = defineStore('notes', () => {
       try {
         const updated = await notesApi.updateNote(owner, id, normalized)
         if (version !== accountVersion) return false
-        notes.value = notes.value.map((note) => (note.id === updated.id ? updated : note))
+        // Positions change only through reorders and refresh, so a save cannot undo a move.
+        notes.value = notes.value.map((note) =>
+          note.id === updated.id ? { ...updated, position: note.position } : note,
+        )
         error.value = ''
         return true
       } catch (cause) {
@@ -209,6 +222,7 @@ export const useNotesStore = defineStore('notes', () => {
     error.value = ''
     try {
       await pendingSaves.get(id)
+      await reorderQueue
       if (version !== accountVersion) return false
       const deletedIds = await notesApi.deleteNote(owner, id)
       if (version !== accountVersion) return false
@@ -221,6 +235,61 @@ export const useNotesStore = defineStore('notes', () => {
     } finally {
       if (version === accountVersion) removingIds.value.delete(id)
     }
+  }
+
+  function applyPositions(positions: ReadonlyMap<string, number>) {
+    notes.value = notes.value.map((note) => {
+      const position = positions.get(note.id)
+      return position === undefined || position === note.position ? note : { ...note, position }
+    })
+  }
+
+  // Moves a note right after afterId (to the top when null) in the account's order of notes.
+  function reorderNote(id: string, afterId: string | null) {
+    const moved = notes.value.find((note) => note.id === id)
+    if (
+      !userId.value ||
+      !loaded.value ||
+      loading.value ||
+      !moved ||
+      !isAvailable(id) ||
+      afterId === id ||
+      (afterId !== null && !isAvailable(afterId))
+    )
+      return Promise.resolve(false)
+    const ordered = notes.value.filter((note) => note.id !== id).sort(compareNoteOrder)
+    ordered.splice(
+      afterId === null ? 0 : ordered.findIndex((note) => note.id === afterId) + 1,
+      0,
+      moved,
+    )
+    if (queuedReorders === 0)
+      confirmedPositions = new Map(notes.value.map((note) => [note.id, note.position]))
+    queuedReorders += 1
+    applyPositions(new Map(ordered.map((note, index) => [note.id, index + 1])))
+    error.value = ''
+    const version = accountVersion
+    const pending = reorderQueue.then(async () => {
+      if (version !== accountVersion) return false
+      try {
+        const positions = await notesApi.reorderNote(id, afterId)
+        if (version !== accountVersion) return false
+        confirmedPositions = positions
+        return true
+      } catch (cause) {
+        if (version === accountVersion)
+          error.value = errorMessage(cause, 'Could not reorder your notes. Please try again.')
+        return false
+      } finally {
+        if (version === accountVersion) {
+          queuedReorders -= 1
+          // After a failure this restores the last order the server confirmed.
+          if (queuedReorders === 0) applyPositions(confirmedPositions)
+        }
+      }
+    })
+    reorderQueue = pending
+    return pending
   }
 
   return {
@@ -240,5 +309,6 @@ export const useNotesStore = defineStore('notes', () => {
     addNote,
     updateNote,
     removeNote,
+    reorderNote,
   }
 })

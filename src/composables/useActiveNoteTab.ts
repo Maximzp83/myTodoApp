@@ -1,5 +1,5 @@
 import { computed, ref, type Ref } from 'vue'
-import type { Note, NoteTab, NoteTabId } from '@/types/note'
+import { compareNoteOrder, type Note, type NoteTab, type NoteTabId } from '@/types/note'
 
 export function useActiveNoteTab(
   tabs: Readonly<Ref<readonly NoteTab[]>>,
@@ -22,9 +22,7 @@ export function useActiveNoteTab(
   const tabNotes = computed(() =>
     notes.value
       .filter((note) => existingTabId(note.tabId) === activeTabId.value)
-      .sort(
-        (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt) || b.id.localeCompare(a.id),
-      ),
+      .sort(compareNoteOrder),
   )
 
   return { activeTabId, tabNotes }

@@ -12,9 +12,9 @@ insert into public.todos (id, user_id, title, category_id) values
 insert into public.note_tabs (id, user_id, name) values
   ('40000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000001', 'Tab A'),
   ('40000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000002', 'Tab B');
-insert into public.notes (id, user_id, body, tab_id) values
-  ('30000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000001', 'Note A', '40000000-0000-4000-8000-000000000001'),
-  ('30000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000002', 'Note B', '40000000-0000-4000-8000-000000000002');
+insert into public.notes (id, user_id, body, tab_id, position) values
+  ('30000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000001', 'Note A', '40000000-0000-4000-8000-000000000001', 1),
+  ('30000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000002', 'Note B', '40000000-0000-4000-8000-000000000002', 7);
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000001', true);
@@ -102,12 +102,39 @@ begin
 end;
 $$;
 
+do $$
+declare
+  first_note constant uuid := '30000000-0000-4000-8000-000000000001';
+  second_note uuid;
+begin
+  insert into public.notes (user_id, title) values (auth.uid(), 'Second A')
+    returning id into second_note;
+  perform public.reorder_note(second_note, first_note);
+  if (select array_agg(id order by position) from public.notes) <> array[first_note, second_note]
+    or (select array_agg(position order by position) from public.notes) <> array[1, 2]::bigint[]
+  then raise exception 'Own note reorder failed.'; end if;
+  perform public.reorder_note(second_note, null);
+  if (select array_agg(id order by position) from public.notes) <> array[second_note, first_note]
+  then raise exception 'Moving a note to the top failed.'; end if;
+  begin
+    perform public.reorder_note('30000000-0000-4000-8000-000000000002', null);
+    raise exception 'RLS failed: a note of another account can be reordered.';
+  exception when no_data_found then null;
+  end;
+  begin
+    perform public.reorder_note(second_note, '30000000-0000-4000-8000-000000000002');
+    raise exception 'RLS failed: a note can be placed after a note of another account.';
+  exception when no_data_found then null;
+  end;
+end;
+$$;
+
 reset role;
 do $$
 begin
   if not exists (select 1 from public.categories where id = '10000000-0000-4000-8000-000000000002' and name = 'Test B')
     or not exists (select 1 from public.todos where id = '20000000-0000-4000-8000-000000000002' and category_id = '10000000-0000-4000-8000-000000000002' and not completed)
-    or not exists (select 1 from public.notes where id = '30000000-0000-4000-8000-000000000002' and body = 'Note B' and tab_id = '40000000-0000-4000-8000-000000000002')
+    or not exists (select 1 from public.notes where id = '30000000-0000-4000-8000-000000000002' and body = 'Note B' and tab_id = '40000000-0000-4000-8000-000000000002' and position = 7)
     or not exists (select 1 from public.note_tabs where id = '40000000-0000-4000-8000-000000000002' and name = 'Tab B')
   then raise exception 'Category operations changed another account.'; end if;
 end;
@@ -136,6 +163,9 @@ begin
     raise exception 'Unauthenticated access to note tabs is allowed.';
   exception when insufficient_privilege then null;
   end;
+  if pg_catalog.has_function_privilege('anon', 'public.reorder_note(uuid, uuid)', 'execute') then
+    raise exception 'Unauthenticated note reordering is allowed.';
+  end if;
 end;
 $$;
 rollback;

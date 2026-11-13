@@ -785,6 +785,7 @@ h1 {
 
 .note-list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.35rem;
   margin: 0;
   padding: 0;
@@ -794,6 +795,7 @@ h1 {
 .note-list__item {
   display: flex;
   width: 100%;
+  min-width: 0;
   align-items: baseline;
   justify-content: space-between;
   gap: 1rem;
@@ -812,6 +814,7 @@ h1 {
 
 .note-list__title {
   min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   font-weight: 700;
   text-overflow: ellipsis;
@@ -828,6 +831,83 @@ h1 {
   flex: none;
   color: #64748b;
   font-size: 0.8rem;
+}
+
+.note-list__row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.note-list__handle {
+  display: grid;
+  flex: none;
+  align-self: stretch;
+  place-items: center;
+  width: 1.75rem;
+  border-radius: 0.5rem;
+  color: #94a3b8;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.note-list__handle:hover {
+  color: #4f46e5;
+  background: #eef2ff;
+}
+
+.note-list__row--dragging {
+  z-index: 1;
+}
+
+.note-list__row--dragging .note-list__handle {
+  cursor: grabbing;
+}
+
+.note-list__row--dragging .note-list__item {
+  border-color: #a5b4fc;
+  background: #fff;
+  box-shadow: 0 0.75rem 1.5rem rgb(15 23 42 / 14%);
+}
+
+.note-list__row--drop-before::before,
+.note-list__row--drop-after::after {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 0.2rem;
+  border-radius: 999px;
+  background: #6366f1;
+  content: '';
+}
+
+.note-list__row--drop-before::before {
+  top: -0.275rem;
+}
+
+.note-list__row--drop-after::after {
+  bottom: -0.275rem;
+}
+
+.note-list__move {
+  display: flex;
+  flex: none;
+  gap: 0.75rem;
+}
+
+/* Move up and Move down are for keyboard and screen reader users: hidden until focused. */
+.note-list__move:not(:focus-within) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
 }
 
 .sr-only {
@@ -1016,6 +1096,21 @@ h1 {
 :root[data-theme='dark'] .note-list__item:hover {
   border-color: #3730a3;
   background: #1e293b;
+}
+
+:root[data-theme='dark'] .note-list__handle {
+  color: #64748b;
+}
+
+:root[data-theme='dark'] .note-list__handle:hover {
+  color: #a5b4fc;
+  background: #1e293b;
+}
+
+:root[data-theme='dark'] .note-list__row--dragging .note-list__item {
+  border-color: #4f46e5;
+  background: #1e293b;
+  box-shadow: 0 0.75rem 1.5rem rgb(0 0 0 / 40%);
 }
 
 :root[data-theme='dark'] .note-list__title--empty,

@@ -13,6 +13,7 @@ const first: Note = {
   title: 'First',
   content: 'First content',
   createdAt: '2026-10-14T10:00:00.000Z',
+  position: 1,
 }
 const second: Note = {
   id: 'note-2',
@@ -20,6 +21,7 @@ const second: Note = {
   title: '',
   content: 'Legacy body',
   createdAt: '2026-10-12T09:00:00.000Z',
+  position: 2,
 }
 
 async function readyStore(notes: Note[] = [first, second], tabs: NoteTab[] = [ideas]) {
@@ -249,6 +251,144 @@ describe('notes store', () => {
     expect(api.updateNote).toHaveBeenCalledTimes(1)
     expect(store.notes).toEqual([second])
     expect(store.removingIds.size).toBe(0)
+  })
+
+  describe('reordering', () => {
+    const general = ['a', 'b', 'c'].map((id, index) => ({
+      ...second,
+      id,
+      title: id,
+      position: index + 1,
+    }))
+    const order = (store: ReturnType<typeof useNotesStore>) =>
+      [...store.notes].sort((x, y) => x.position - y.position).map((note) => note.id)
+    function deferred() {
+      let resolve: (positions: Map<string, number>) => void = () => undefined
+      const promise = new Promise<Map<string, number>>((done) => (resolve = done))
+      return { promise, resolve: (positions: Map<string, number>) => resolve(positions) }
+    }
+
+    it('shows a move at once and then applies the positions from the server', async () => {
+      const store = await readyStore(general)
+      const answer = deferred()
+      vi.mocked(api.reorderNote).mockReturnValue(answer.promise)
+
+      const move = store.reorderNote('c', 'a')
+      expect(order(store)).toEqual(['a', 'c', 'b'])
+      await vi.waitFor(() => expect(api.reorderNote).toHaveBeenCalledExactlyOnceWith('c', 'a'))
+      answer.resolve(
+        new Map([
+          ['a', 1],
+          ['b', 2],
+          ['c', 3],
+          ['elsewhere', 4],
+        ]),
+      )
+      expect(await move).toBe(true)
+      expect(order(store)).toEqual(['a', 'b', 'c'])
+      expect(store.notes).toHaveLength(3)
+    })
+
+    it('restores the confirmed order when a move fails', async () => {
+      const store = await readyStore(general)
+      vi.mocked(api.reorderNote).mockRejectedValue(new Error('Reorder failed'))
+      const move = store.reorderNote('c', null)
+      expect(order(store)).toEqual(['c', 'a', 'b'])
+      expect(await move).toBe(false)
+      expect(store.error).toBe('Reorder failed')
+      expect(order(store)).toEqual(['a', 'b', 'c'])
+    })
+
+    it('sends queued moves in order and applies only the answer to the last one', async () => {
+      const store = await readyStore(general)
+      const firstAnswer = deferred()
+      const lastAnswer = deferred()
+      vi.mocked(api.reorderNote)
+        .mockReturnValueOnce(firstAnswer.promise)
+        .mockReturnValueOnce(lastAnswer.promise)
+
+      const firstMove = store.reorderNote('c', null)
+      const lastMove = store.reorderNote('b', null)
+      expect(order(store)).toEqual(['b', 'c', 'a'])
+      await Promise.resolve()
+      expect(api.reorderNote).toHaveBeenCalledTimes(1)
+      firstAnswer.resolve(
+        new Map([
+          ['c', 1],
+          ['a', 2],
+          ['b', 3],
+        ]),
+      )
+      expect(await firstMove).toBe(true)
+      expect(order(store)).toEqual(['b', 'c', 'a'])
+      expect(api.reorderNote).toHaveBeenLastCalledWith('b', null)
+      lastAnswer.resolve(
+        new Map([
+          ['b', 1],
+          ['c', 2],
+          ['a', 3],
+        ]),
+      )
+      expect(await lastMove).toBe(true)
+      expect(order(store)).toEqual(['b', 'c', 'a'])
+    })
+
+    it('refreshes and deletes only after queued moves finish', async () => {
+      const store = await readyStore(general)
+      const answer = deferred()
+      vi.mocked(api.reorderNote).mockReturnValue(answer.promise)
+      vi.mocked(api.deleteNote).mockResolvedValue(['c'])
+      vi.mocked(api.fetchNotesData).mockClear()
+
+      const move = store.reorderNote('c', null)
+      const removal = store.removeNote('c')
+      const refresh = store.refresh()
+      await Promise.resolve()
+      expect(api.deleteNote).not.toHaveBeenCalled()
+      expect(api.fetchNotesData).not.toHaveBeenCalled()
+      answer.resolve(
+        new Map([
+          ['c', 1],
+          ['a', 2],
+          ['b', 3],
+        ]),
+      )
+      expect(await move).toBe(true)
+      expect(await removal).toBe(true)
+      await refresh
+      expect(api.fetchNotesData).toHaveBeenCalledTimes(1)
+    })
+
+    it('keeps a moved note in place when a save answers with its old position', async () => {
+      const store = await readyStore(general)
+      vi.mocked(api.reorderNote).mockResolvedValue(
+        new Map([
+          ['c', 1],
+          ['a', 2],
+          ['b', 3],
+        ]),
+      )
+      vi.mocked(api.updateNote).mockImplementation(async (_owner, id, draft) => ({
+        ...second,
+        ...draft,
+        id,
+        position: 3,
+      }))
+      expect(await store.reorderNote('c', null)).toBe(true)
+      expect(await store.updateNote('c', { tabId: null, title: 'Edited', content: '' })).toBe(true)
+      expect(order(store)).toEqual(['c', 'a', 'b'])
+      expect(store.notes.find((note) => note.id === 'c')?.title).toBe('Edited')
+    })
+
+    it('rejects moves that cannot apply', async () => {
+      const store = await readyStore(general)
+      expect(await store.reorderNote('missing', null)).toBe(false)
+      expect(await store.reorderNote('a', 'a')).toBe(false)
+      expect(await store.reorderNote('a', 'missing')).toBe(false)
+      store.setAccount(null)
+      expect(await store.reorderNote('a', null)).toBe(false)
+      expect(api.reorderNote).not.toHaveBeenCalled()
+    })
   })
 
   it('clears data on sign-out and ignores late responses', async () => {

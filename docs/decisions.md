@@ -46,3 +46,22 @@ a category appear in Uncategorized.
 
 Consequence:
 General cannot be renamed or deleted, and its name is reserved for user tabs.
+
+---
+
+## ADR-006 — The database renumbers notes when one is moved
+
+All notes of an account have one order, stored in `notes.position`; each tab shows its own
+notes in that order. A move sends only its intent, "place this note right after that one",
+to the `reorder_note` function, which renumbers the account's notes from the database's
+current order in one transaction.
+
+Reason:
+A client that saved its whole list could silently undo a move made on another device from
+an outdated list. Renumbering on the server keeps positions whole numbers without gaps, so
+there is always room to place a note between two others.
+
+Consequence:
+Only `reorder_note` and the column default for new notes change positions; saving a note
+never sends its position. A move may rewrite the positions of all the account's notes.
+

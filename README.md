@@ -62,6 +62,14 @@ For an existing Supabase project, run only the contents of
 before deploying this update. Do not rerun the initial table-creation migration.
 The new migration changes the foreign key without deleting existing data.
 
+### Note order
+
+Notes in a tab can be reordered by dragging their handle or with the Move up and Move down
+buttons that appear on keyboard focus. Before deploying this update to an existing Supabase
+project, run `supabase/migrations/202611130001_note_order.sql` in **SQL Editor → New query → Run**.
+Deployment starts on every push to `main`, so apply the migration before merging.
+Existing notes keep their newest-first order.
+
 ### Deploy to GitHub Pages
 
 1. In the repository, open **Settings → Secrets and variables → Actions → Variables**.
@@ -85,8 +93,8 @@ failed writes, and shared server data across separate browser contexts. They do 
 prove that a remote project's schema or RLS policies have been applied.
 Run `supabase/tests/ownership.sql` in the project's SQL Editor to check database
 ownership policies; it uses disposable records in a transaction and rolls them back.
-It also checks category rename/delete isolation and task preservation. Both migrations
-must be applied first. `supabase/tests/local.sql` is a separate test runner for an empty,
+It also checks category rename/delete isolation, task preservation, and note reordering.
+All migrations in `supabase/migrations` must be applied first. `supabase/tests/local.sql` is a separate test runner for an empty,
 disposable PostgreSQL 15+ database; do not run that bootstrap in your Supabase project.
 Finally check real email confirmation and the same account in two devices against
 the configured project before treating deployment as complete.

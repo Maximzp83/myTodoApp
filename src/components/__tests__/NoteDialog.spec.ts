@@ -9,6 +9,7 @@ const note: Note = {
   title: 'Groceries',
   content: 'Milk\nBread',
   createdAt: '2026-10-14T10:00:00.000Z',
+  position: 1,
 }
 
 beforeAll(() => {

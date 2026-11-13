@@ -175,7 +175,12 @@ async function removeNote() {
       >
         New note
       </button>
-      <NoteList :notes="tabNotes" :id-prefix="noteIdPrefix" @open="dialogNoteId = $event" />
+      <NoteList
+        :notes="tabNotes"
+        :id-prefix="noteIdPrefix"
+        @open="dialogNoteId = $event"
+        @reorder="notesStore.reorderNote"
+      />
     </div>
   </fieldset>
   <NoteDialog

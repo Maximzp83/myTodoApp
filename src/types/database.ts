@@ -32,6 +32,7 @@ export type NoteRow = {
   body: string
   tab_id: string | null
   created_at: string
+  position: number
 }
 
 export interface Database {
@@ -66,6 +67,7 @@ export interface Database {
           body?: string
           tab_id?: string | null
           created_at?: string
+          position?: number
         }
         Update: { title?: string; body?: string; tab_id?: string | null }
         Relationships: []
@@ -82,6 +84,10 @@ export interface Database {
       import_browser_data: {
         Args: { expected_user_id: string; category_rows: Json; todo_rows: Json }
         Returns: undefined
+      }
+      reorder_note: {
+        Args: { moved_note_id: string; after_note_id: string | null }
+        Returns: { note_id: string; note_position: number }[]
       }
     }
     Enums: Record<string, never>

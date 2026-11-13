@@ -104,8 +104,22 @@ The Notes page (`#/notes`) groups standalone notes into tabs.
 A note has a title (up to 120 characters, may be empty), content (up to 10000 characters),
 and a creation date.
 
-The active tab lists its notes, newest first. Each item shows the title, or "Untitled note"
-when the title is empty, and the creation date in the user's local format.
+The active tab lists its notes in the user's order. Each item shows the title, or
+"Untitled note" when the title is empty, and the creation date in the user's local format.
+
+### Note order
+
+- Users reorder the notes of the active tab by dragging a note by its handle with a mouse,
+  touch, or pen. A line shows where the note will land; Escape cancels the drag.
+- Each note also has Move up and Move down buttons for keyboard and screen reader users.
+  They are visually hidden until one of them has focus. After a move, focus stays on the
+  button and the new position is announced.
+- The order is saved in the account. Other open devices show it after Refresh.
+- A new note appears at the top of its tab. Notes that existed before keep their
+  newest-first order.
+- A note moved to another tab in the dialog keeps its place in the account's order of notes,
+  so it appears among that tab's notes at that place.
+- If saving a move fails, the list returns to the last saved order and shows the error.
 
 ### Note dialog
 

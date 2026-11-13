@@ -10,6 +10,7 @@ export function toNote(row: NoteRow): Note {
     title: row.title,
     content: row.body,
     createdAt: row.created_at,
+    position: row.position,
   }
 }
 
@@ -97,6 +98,17 @@ export async function updateNote(userId: string, id: string, draft: NoteDraft) {
     .single()
   if (error) throw error
   return toNote(data)
+}
+
+// Places a note right after another one (at the top when afterId is null). The database
+// renumbers the account's notes and returns every note's new position.
+export async function reorderNote(id: string, afterId: string | null) {
+  const { data, error } = await getSupabase().rpc('reorder_note', {
+    moved_note_id: id,
+    after_note_id: afterId,
+  })
+  if (error) throw error
+  return new Map(data.map((row) => [row.note_id, row.note_position]))
 }
 
 export async function deleteNote(userId: string, id: string) {

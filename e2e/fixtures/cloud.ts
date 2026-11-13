@@ -165,6 +165,38 @@ export class TestCloud {
         await respond(null)
         return
       }
+      if (url.pathname === '/rest/v1/rpc/reorder_note') {
+        const own = this.notes.filter((note) => note.user_id === actor.id)
+        const moved = own.find((note) => note.id === body.moved_note_id)
+        const afterId = typeof body.after_note_id === 'string' ? body.after_note_id : null
+        if (!moved) {
+          await respond({ message: 'The note is no longer available.' }, 400)
+          return
+        }
+        if (
+          afterId !== null &&
+          (afterId === moved.id || !own.some((note) => note.id === afterId))
+        ) {
+          await respond({ message: 'Your notes changed. Refresh and try again.' }, 400)
+          return
+        }
+        const ordered = own
+          .filter((note) => note !== moved)
+          .sort(
+            (a, b) =>
+              a.position - b.position ||
+              b.created_at.localeCompare(a.created_at) ||
+              b.id.localeCompare(a.id),
+          )
+        ordered.splice(
+          afterId === null ? 0 : ordered.findIndex((note) => note.id === afterId) + 1,
+          0,
+          moved,
+        )
+        for (const [index, note] of ordered.entries()) note.position = index + 1
+        await respond(own.map((note) => ({ note_id: note.id, note_position: note.position })))
+        return
+      }
       if (url.pathname === '/rest/v1/categories') {
         if (method === 'POST') {
           if (body.user_id !== actor.id) {
@@ -311,6 +343,8 @@ export class TestCloud {
             body: typeof body.body === 'string' ? body.body : '',
             tab_id: tabId,
             created_at: new Date().toISOString(),
+            // Like the database default: a new note comes before all existing ones.
+            position: -Date.now(),
           }
           this.notes.push(note)
           await respond(single ? note : [note])

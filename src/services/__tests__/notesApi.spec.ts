@@ -11,6 +11,7 @@ describe('notesApi mapping', () => {
         body: 'Legacy text',
         tab_id: null,
         created_at: '2026-10-12T09:00:00+00:00',
+        position: 3,
       }),
     ).toEqual({
       id: 'note-1',
@@ -18,6 +19,7 @@ describe('notesApi mapping', () => {
       title: '',
       content: 'Legacy text',
       createdAt: '2026-10-12T09:00:00+00:00',
+      position: 3,
     })
   })
 

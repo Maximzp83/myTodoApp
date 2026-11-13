@@ -70,6 +70,7 @@ test('keeps existing notes in General and isolates notes by tab', async ({ page,
     body: 'Written before tabs existed',
     tab_id: null,
     created_at: '2026-10-01T09:00:00.000Z',
+    position: 1,
   })
   await openNotes(page)
   await page.getByRole('button', { name: 'Refresh', exact: true }).click()
@@ -228,4 +229,80 @@ test('moves a note between tabs from the edit dialog only', async ({ page, cloud
   await page.getByRole('tab', { name: 'General', exact: true }).click()
   await expect(noteButton).toBeVisible()
   expect(cloud.notes[0]?.tab_id).toBeNull()
+})
+
+function noteRow(page: Page, title: string) {
+  return page.getByRole('list', { name: 'Notes' }).getByRole('listitem').filter({ hasText: title })
+}
+
+// Drags a note by its handle and drops it over the upper edge of another note.
+async function dragNoteAbove(page: Page, title: string, targetTitle: string) {
+  const handle = await noteRow(page, title).getByTitle('Drag to reorder').boundingBox()
+  const target = await noteRow(page, targetTitle).boundingBox()
+  if (!handle || !target) throw new Error('Expected visible notes to drag')
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(target.x + target.width / 2, target.y + 4, { steps: 8 })
+  await page.mouse.up()
+}
+
+async function createNotes(page: Page, titles: string[]) {
+  for (const title of titles) await createNote(page, title, '')
+}
+
+test('reorders the notes of a tab by dragging and keeps the order', async ({ page }) => {
+  await openNotes(page)
+  await createNote(page, 'General note', '')
+  await createTab(page, 'Ideas')
+  await createNotes(page, ['Alpha', 'Beta', 'Gamma'])
+  const items = page.getByRole('list', { name: 'Notes' }).getByRole('listitem')
+  await expect(items).toContainText(['Gamma', 'Beta', 'Alpha'])
+
+  await dragNoteAbove(page, 'Alpha', 'Gamma')
+  await expect(items).toContainText(['Alpha', 'Gamma', 'Beta'])
+  await createNote(page, 'Delta', '')
+  await expect(items).toContainText(['Delta', 'Alpha', 'Gamma', 'Beta'])
+
+  await page.reload()
+  await page.getByRole('tab', { name: 'Ideas', exact: true }).click()
+  await expect(items).toHaveCount(4)
+  await expect(items).toContainText(['Delta', 'Alpha', 'Gamma', 'Beta'])
+  await page.getByRole('button', { name: /^Alpha/ }).click()
+  await expect(page.getByRole('dialog', { name: 'Alpha' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await page.getByRole('tab', { name: 'General', exact: true }).click()
+  await expect(items).toHaveCount(1)
+  await expect(items).toContainText(['General note'])
+})
+
+test('moves notes with buttons shown only on focus and reverts a failed move', async ({
+  page,
+  cloud,
+}) => {
+  await openNotes(page)
+  await createNotes(page, ['Alpha', 'Beta', 'Gamma'])
+  const items = page.getByRole('list', { name: 'Notes' }).getByRole('listitem')
+
+  const moveDown = page.getByRole('button', { name: 'Move down: Gamma', exact: true })
+  // The buttons sit in a visually hidden box until one of them has focus.
+  const moveButtons = moveDown.locator('..')
+  expect((await moveButtons.boundingBox())?.width).toBeLessThanOrEqual(1)
+  await moveDown.focus()
+  expect((await moveButtons.boundingBox())?.width).toBeGreaterThan(20)
+  await page.keyboard.press('Enter')
+  await expect(items).toContainText(['Beta', 'Gamma', 'Alpha'])
+  await expect(moveDown).toBeFocused()
+  await expect(page.getByText('Moved Gamma to position 2 of 3.')).toBeAttached()
+  await expect(page.getByRole('button', { name: 'Move up: Beta', exact: true })).toHaveAttribute(
+    'aria-disabled',
+    'true',
+  )
+
+  cloud.failWrites = true
+  await dragNoteAbove(page, 'Alpha', 'Beta')
+  await expect(page.getByRole('alert')).toHaveText('Simulated save failure')
+  await expect(items).toContainText(['Beta', 'Gamma', 'Alpha'])
+  cloud.failWrites = false
+  await page.reload()
+  await expect(items).toContainText(['Beta', 'Gamma', 'Alpha'])
 })

@@ -17,6 +17,17 @@ export interface Note {
   title: string
   content: string
   createdAt: string
+  // The account's own order of notes: a smaller position comes first.
+  position: number
+}
+
+// The same order the database uses: position, then newest first.
+export function compareNoteOrder(a: Note, b: Note) {
+  return (
+    a.position - b.position ||
+    Date.parse(b.createdAt) - Date.parse(a.createdAt) ||
+    b.id.localeCompare(a.id)
+  )
 }
 
 export interface NoteDraft {
